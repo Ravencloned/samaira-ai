@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SamairaAI - Your Financial Companion</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-section">
+                <div class="logo-icon">🪷</div>
+                <div class="logo-text">
+                    <h1>SamairaAI</h1>
+                    <p>Aapka Financial Companion</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="language-selector">
+                    🌐 Hinglish
+                </button>
+                <button id="new-chat-btn" class="settings-btn" title="New Chat">
+                    ➕
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <!-- Welcome Screen -->
+            <div id="welcome-screen" class="welcome-screen">
+                <div class="welcome-icon">🪷</div>
+                <h2>Namaste! Main SamairaAI hoon</h2>
+                <p>Aapka personal financial literacy companion. Main aapko finances samajhne mein madad karungi - simple Hinglish mein!</p>
+                
+                <div class="quick-actions">
+                    <button class="quick-action-btn" onclick="sendExample('SIP aur RD mein kya difference hai?')">
+                        <div class="quick-action-icon">📊</div>
+                        <div class="quick-action-text">
+                            <h4>SIP vs RD</h4>
+                            <p>Compare investments</p>
+                        </div>
+                    </button>
+                    
+                    <button class="quick-action-btn" onclick="sendExample('Bachhe ki padhai ke liye planning batao')">
+                        <div class="quick-action-icon">🎓</div>
+                        <div class="quick-action-text">
+                            <h4>Education Planning</h4>
+                            <p>Bachhe ki padhai</p>
+                        </div>
+                    </button>
+                    
+                    <button class="quick-action-btn" onclick="sendExample('PPF account ke baare mein batao')">
+                        <div class="quick-action-icon">🏛️</div>
+                        <div class="quick-action-text">
+                            <h4>Govt Schemes</h4>
+                            <p>PPF, SSY, NPS</p>
+                        </div>
+                    </button>
+                    
+                    <button class="quick-action-btn" onclick="sendExample('Emergency fund kaise banaye?')">
+                        <div class="quick-action-icon">💰</div>
+                        <div class="quick-action-text">
+                            <h4>Emergency Fund</h4>
+                            <p>Safety net tips</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Messages Container -->
+            <div id="chat-messages" class="chat-messages hidden">
+                <!-- Messages will be added here dynamically -->
+            </div>
+
+            <!-- Typing Indicator -->
+            <div id="typing-indicator" class="message ai hidden">
+                <div class="message-avatar">🪷</div>
+                <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Input Area -->
+        <footer class="input-area">
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="message-input" 
+                        class="message-input"
+                        placeholder="Kuch bhi puchho... SIP, savings, goals..."
+                        rows="1"
+                    ></textarea>
+                    <button id="send-btn" class="send-btn" title="Send Message">
+                        ➤
+                    </button>
+                </div>
+                <button id="mic-btn" class="voice-btn" title="Voice Input">
+                    🎤
+                </button>
+            </div>
+            
+            <div id="recording-status" class="toast-container hidden">
+                <div class="toast">🔴 Recording... Tap again to stop</div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast Container for Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+    <script src="/static/voice.js"></script>
+</body>
+</html>
