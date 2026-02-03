@@ -1,9 +1,9 @@
 /**
  * SamairaAI - Voice Input Handler
- * Handles microphone recording and voice-to-text functionality
+ * Handles microphone recording and speech-to-text
  */
 
-// Voice Recording State
+// Voice State
 const VoiceState = {
     isRecording: false,
     mediaRecorder: null,
@@ -16,36 +16,36 @@ document.addEventListener('DOMContentLoaded', initVoice);
 
 function initVoice() {
     const micBtn = document.getElementById('mic-btn');
-    const recordingStatus = document.getElementById('recording-status');
     
-    // Check for microphone support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.warn('Microphone not supported');
-        micBtn.disabled = true;
-        micBtn.title = 'Microphone not supported in this browser';
+        if (micBtn) {
+            micBtn.disabled = true;
+            micBtn.title = 'Microphone not supported';
+        }
         return;
     }
     
-    // Click to toggle recording (better for mobile)
-    micBtn.addEventListener('click', () => {
-        if (VoiceState.isRecording) {
-            stopRecording();
-        } else {
-            startRecording();
-        }
-    });
+    // Click to toggle recording
+    if (micBtn) {
+        micBtn.addEventListener('click', () => {
+            if (VoiceState.isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+    }
     
-    console.log('Voice input initialized');
+    console.log('🎤 Voice input initialized');
 }
 
 async function startRecording() {
     if (VoiceState.isRecording) return;
     
     const micBtn = document.getElementById('mic-btn');
-    const recordingStatus = document.getElementById('recording-status');
     
     try {
-        // Request microphone access
         VoiceState.stream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
                 echoCancellation: true,
@@ -54,7 +54,6 @@ async function startRecording() {
             }
         });
         
-        // Create MediaRecorder
         VoiceState.mediaRecorder = new MediaRecorder(VoiceState.stream, {
             mimeType: getSupportedMimeType()
         });
@@ -69,19 +68,20 @@ async function startRecording() {
         
         VoiceState.mediaRecorder.onstop = handleRecordingComplete;
         
-        // Start recording
         VoiceState.mediaRecorder.start();
         VoiceState.isRecording = true;
         
         // Update UI
-        micBtn.classList.add('recording');
-        recordingStatus.classList.remove('hidden');
+        if (micBtn) {
+            micBtn.classList.add('recording');
+            micBtn.textContent = '⏹️';
+        }
         
         console.log('Recording started');
         
     } catch (error) {
-        console.error('Error starting recording:', error);
-        alert('Microphone access denied. Please allow microphone access to use voice input.');
+        console.error('Recording error:', error);
+        alert('Microphone access denied. Please allow microphone access.');
     }
 }
 
@@ -89,14 +89,11 @@ function stopRecording() {
     if (!VoiceState.isRecording) return;
     
     const micBtn = document.getElementById('mic-btn');
-    const recordingStatus = document.getElementById('recording-status');
     
-    // Stop recording
     if (VoiceState.mediaRecorder && VoiceState.mediaRecorder.state !== 'inactive') {
         VoiceState.mediaRecorder.stop();
     }
     
-    // Stop all tracks
     if (VoiceState.stream) {
         VoiceState.stream.getTracks().forEach(track => track.stop());
     }
@@ -104,8 +101,10 @@ function stopRecording() {
     VoiceState.isRecording = false;
     
     // Update UI
-    micBtn.classList.remove('recording');
-    recordingStatus.classList.add('hidden');
+    if (micBtn) {
+        micBtn.classList.remove('recording');
+        micBtn.textContent = '🎤';
+    }
     
     console.log('Recording stopped');
 }
@@ -116,87 +115,159 @@ async function handleRecordingComplete() {
         return;
     }
     
-    // Create audio blob
     const mimeType = getSupportedMimeType();
     const audioBlob = new Blob(VoiceState.audioChunks, { type: mimeType });
     
-    // Check if audio is too short (likely accidental click)
+    // Ignore very short recordings (accidental clicks)
     if (audioBlob.size < 1000) {
-        console.warn('Recording too short, ignoring');
+        console.warn('Recording too short');
         return;
     }
     
     console.log('Audio recorded:', audioBlob.size, 'bytes');
     
-    // Send to backend for processing
     await processVoiceInput(audioBlob);
 }
 
 async function processVoiceInput(audioBlob) {
-    // Show chat area
     const welcomeScreen = document.getElementById('welcome-screen');
     const chatMessages = document.getElementById('chat-messages');
+    const chatArea = document.getElementById('chat-area');
     
-    welcomeScreen.classList.add('hidden');
-    chatMessages.classList.remove('hidden');
+    // Show chat area
+    if (welcomeScreen) welcomeScreen.classList.add('hidden');
+    if (chatMessages) chatMessages.classList.remove('hidden');
     
-    // Show processing indicator
-    showTyping(true);
+    // Show typing indicator
+    const typingId = 'voice-typing-' + Date.now();
+    const typingEl = document.createElement('div');
+    typingEl.className = 'message-wrapper ai';
+    typingEl.id = typingId;
+    typingEl.innerHTML = `
+        <div class="message ai">
+            <div class="message-avatar">🪷</div>
+            <div class="message-content">
+                <div class="typing-indicator">
+                    <span></span><span></span><span></span>
+                </div>
+                <small style="color: var(--text-muted);">Processing voice...</small>
+            </div>
+        </div>
+    `;
+    chatMessages.appendChild(typingEl);
+    if (chatArea) chatArea.scrollTop = chatArea.scrollHeight;
     
     try {
-        // Create form data
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
         
-        if (AppState.sessionId) {
-            formData.append('session_id', AppState.sessionId);
+        if (window.AppState && window.AppState.sessionId) {
+            formData.append('session_id', window.AppState.sessionId);
         }
         
-        // Send to voice chat endpoint
-        const response = await fetch(`${API_BASE}/voice/chat`, {
+        const response = await fetch('/api/voice/chat', {
             method: 'POST',
             body: formData
         });
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP ${response.status}`);
         }
         
         const data = await response.json();
         
-        // Hide typing indicator
-        showTyping(false);
+        // Remove typing indicator
+        const typing = document.getElementById(typingId);
+        if (typing) typing.remove();
         
-        // Update session ID
-        if (data.session_id) {
-            AppState.sessionId = data.session_id;
+        // Update session
+        if (data.session_id && window.AppState) {
+            window.AppState.sessionId = data.session_id;
         }
         
-        // Show transcript as user message
+        // Add user message (transcript)
         if (data.transcript) {
-            addMessageToUI('user', data.transcript);
+            addVoiceMessage('user', data.transcript);
         }
         
-        // Show AI response
-        addMessageToUI('ai', data.response, {
-            intent: data.intent,
-            handoffRequested: data.handoff_requested,
-            ttsText: data.tts_text
-        });
+        // Add AI response
+        addVoiceMessage('ai', data.response, data.suggested_questions);
         
         // Speak response
-        if (AppState.ttsEnabled && data.tts_text) {
-            speakText(data.tts_text);
+        if (data.tts_text && window.speakText) {
+            window.speakText(data.tts_text);
         }
         
     } catch (error) {
-        console.error('Error processing voice:', error);
-        showTyping(false);
-        addMessageToUI('ai', 'Maaf kijiye, aapki awaaz process karne mein problem hui. Kya aap phir se try kar sakte hain?');
+        console.error('Voice processing error:', error);
+        
+        const typing = document.getElementById(typingId);
+        if (typing) typing.remove();
+        
+        addVoiceMessage('ai', 'Maaf kijiye, aapki awaaz process karne mein problem hui. Please try again.');
     }
 }
 
-// Utility function to get supported audio mime type
+function addVoiceMessage(role, content, suggestions = null) {
+    const chatMessages = document.getElementById('chat-messages');
+    const chatArea = document.getElementById('chat-area');
+    
+    if (!chatMessages) return;
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = `message-wrapper ${role}`;
+    
+    const avatar = role === 'user' ? '👤' : '🪷';
+    
+    wrapper.innerHTML = `
+        <div class="message ${role}">
+            <div class="message-avatar">${avatar}</div>
+            <div class="message-content">
+                <div class="message-text">${role === 'ai' ? renderSimpleMarkdown(content) : escapeHtml(content)}</div>
+                ${role === 'ai' ? `
+                    <div class="message-actions">
+                        <button class="message-action-btn" onclick="copyMessage(this)" title="Copy">📋</button>
+                        <button class="message-action-btn" onclick="speakMessage(this)" title="Read aloud">🔊</button>
+                    </div>
+                    <div class="suggested-questions">${suggestions ? suggestions.map(q => 
+                        `<button class="suggested-question" onclick="sendExample('${escapeHtml(q)}')">${q}</button>`
+                    ).join('') : ''}</div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    chatMessages.appendChild(wrapper);
+    
+    if (chatArea) {
+        chatArea.scrollTop = chatArea.scrollHeight;
+    }
+    
+    // Save to state
+    if (window.AppState) {
+        window.AppState.messages.push({ 
+            role: role === 'ai' ? 'assistant' : 'user', 
+            content 
+        });
+    }
+}
+
+function renderSimpleMarkdown(text) {
+    if (typeof marked !== 'undefined') {
+        return marked.parse(text);
+    }
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function getSupportedMimeType() {
     const types = [
         'audio/webm;codecs=opus',
@@ -212,29 +283,10 @@ function getSupportedMimeType() {
         }
     }
     
-    return 'audio/webm'; // Fallback
+    return 'audio/webm';
 }
 
-// Alternative: Click-to-record mode (toggle recording)
-function toggleRecordingMode() {
-    const micBtn = document.getElementById('mic-btn');
-    
-    // Remove push-to-talk listeners
-    micBtn.removeEventListener('mousedown', startRecording);
-    micBtn.removeEventListener('mouseup', stopRecording);
-    micBtn.removeEventListener('mouseleave', stopRecording);
-    
-    // Add click toggle listener
-    micBtn.addEventListener('click', () => {
-        if (VoiceState.isRecording) {
-            stopRecording();
-        } else {
-            startRecording();
-        }
-    });
-}
-
-// Export for use in app.js
+// Exports
 window.VoiceState = VoiceState;
 window.startRecording = startRecording;
 window.stopRecording = stopRecording;
