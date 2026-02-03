@@ -541,28 +541,89 @@ let selectedVoice = null;
 let audioContext = null;
 
 const phoneticCorrections = {
-    // Common Hindi words
+    // Common Hindi verbs
     'hai': 'hay',
     'hain': 'hain',
     'mein': 'main',
+    'hoti': 'ho-tee',
+    'hota': 'ho-taa',
     'kijiye': 'kee-jee-yay',
     'chahiye': 'chaa-hee-yay',
     'karein': 'ka-rain',
+    'karna': 'kar-naa',
+    'karo': 'ka-ro',
     'sakti': 'sak-tee',
     'sakta': 'sak-taa',
+    'sakte': 'sak-tay',
+    'milta': 'mil-taa',
+    'milti': 'mil-tee',
+    'milne': 'mil-nay',
+    
+    // Pronouns and possessives
     'aapka': 'aap-kaa',
     'aapki': 'aap-kee',
+    'aapko': 'aap-ko',
+    'tumhare': 'tum-haa-ray',
+    'tumhari': 'tum-haa-ree',
+    'mera': 'may-raa',
+    'meri': 'may-ree',
+    
+    // Question words
     'kaise': 'kai-say',
+    'kya': 'kyaa',
+    'kahan': 'ka-haan',
+    'kitna': 'kit-naa',
+    'kitne': 'kit-nay',
+    
+    // Common adjectives/adverbs
     'bahut': 'ba-hut',
     'accha': 'ach-chaa',
     'achha': 'ach-chaa',
+    'acha': 'ach-chaa',
+    'bada': 'ba-daa',
+    'badi': 'ba-dee',
+    'chota': 'cho-taa',
+    'choti': 'cho-tee',
+    'aasaan': 'aa-saan',
+    'mushkil': 'mush-kil',
+    'sahi': 'sa-hee',
+    'galat': 'ga-lat',
+    'jaldi': 'jal-dee',
+    'dheere': 'dhee-ray',
+    'zaroor': 'za-roor',
+    'zaruri': 'za-roo-ree',
+    
+    // Financial Hindi terms
     'paisa': 'pai-saa',
     'paise': 'pai-say',
     'rupaye': 'ru-pa-yay',
-    'lakshya': 'laksh-ya',
+    'rupiya': 'ru-pee-yaa',
     'bachat': 'ba-chat',
     'nivesh': 'ni-vesh',
+    'faayda': 'faa-ee-daa',
+    'fayda': 'faa-ee-daa',
+    'nuksaan': 'nuk-saan',
+    'nuksan': 'nuk-saan',
+    'byaj': 'byaaj',
+    'bima': 'bee-maa',
+    'lakshya': 'laksh-ya',
+    'salah': 'sa-laah',
+    'sambhavana': 'sam-bhaa-va-naa',
+    
+    // Greetings
+    'namaste': 'na-mas-tay',
+    'namaskar': 'na-mas-kaar',
+    'dhanyavaad': 'dhan-ya-vaad',
+    'shukriya': 'shuk-ri-yaa',
+    
+    // Conversation starters/fillers
+    'dekho': 'day-kho',
+    'dekh': 'daykh',
+    'suno': 'su-no',
+    'bolo': 'bo-lo',
+    'batao': 'ba-taa-o',
     'bataiye': 'ba-taa-ee-yay',
+    'samjho': 'sam-jho',
     'samjhiye': 'sam-jhi-yay',
     'dekhiye': 'day-khi-yay',
     'suniye': 'su-ni-yay',
@@ -570,36 +631,53 @@ const phoneticCorrections = {
     'lijiye': 'lee-ji-yay',
     'rakhiye': 'ra-khi-yay',
     'jaaniye': 'jaa-ni-yay',
-    'namaste': 'na-mas-tay',
-    'dhanyavaad': 'dhan-ya-vaad',
-    'shukriya': 'shuk-ri-yaa',
-    'zaroor': 'za-roor',
-    'zaruri': 'za-roo-ree',
-    'faayda': 'faa-ee-daa',
-    'nuksaan': 'nuk-saan',
-    'aasaan': 'aa-saan',
-    'mushkil': 'mush-kil',
-    'madad': 'ma-dad',
-    'sawal': 'sa-waal',
-    'jawab': 'ja-waab',
-    'sahi': 'sa-hee',
-    'galat': 'ga-lat',
-    'pehle': 'peh-lay',
-    'baad': 'baad',
-    'abhi': 'ab-hee',
-    'jaldi': 'jal-dee',
-    'dheere': 'dhee-ray',
+    'sochiye': 'so-chi-yay',
+    
+    // Connectors
     'aur': 'aur',
     'ya': 'yaa',
     'lekin': 'lay-kin',
+    'magar': 'ma-gar',
     'isliye': 'is-li-yay',
     'kyunki': 'kyun-ki',
     'agar': 'a-gar',
     'toh': 'toh',
+    'to': 'toh',
+    'phir': 'phir',
     'matlab': 'mat-lab',
-    'samajh': 'sa-majh',
-    'try': 'traay',
-    // Financial terms
+    'yaani': 'yaa-nee',
+    'jaise': 'jai-say',
+    
+    // Time words
+    'pehle': 'peh-lay',
+    'baad': 'baad',
+    'abhi': 'ab-hee',
+    'hamesha': 'ha-may-shaa',
+    'kabhi': 'kab-hee',
+    'saal': 'saal',
+    'mahina': 'ma-hee-naa',
+    
+    // Reaction words
+    'wah': 'waah',
+    'arre': 'ar-ray',
+    'haan': 'haan',
+    'nahi': 'na-hee',
+    'nahin': 'na-heen',
+    'bilkul': 'bil-kul',
+    'shayad': 'shaa-yad',
+    
+    // Relationship words
+    'beta': 'bay-taa',
+    'beti': 'bay-tee',
+    'bhai': 'bhaai',
+    'behen': 'be-hen',
+    'didi': 'dee-dee',
+    'masi': 'maa-see',
+    'parivaar': 'pa-ri-vaar',
+    'bachche': 'bach-chay',
+    'bachchi': 'bach-chee',
+    
+    // Financial acronyms  
     'SIP': 'sip',
     'RD': 'aar dee',
     'PPF': 'pee pee eff',
@@ -613,11 +691,16 @@ const phoneticCorrections = {
     'GST': 'jee es tee',
     'PAN': 'pan card',
     'KYC': 'kay why see',
+    'SSY': 'sukanya samridhi',
+    'EPF': 'ee pee eff',
+    
+    // Symbols and numbers
     '₹': 'rupees',
     'lakh': 'laakh',
     'lakhs': 'laakhs',
-    'crore': 'crore',
-    'crores': 'crores',
+    'crore': 'karor',
+    'crores': 'karors',
+    
     // Samaira specific
     'Samaira': 'Sa-mai-raa',
     'SamairaAI': 'Sa-mai-raa A I'
@@ -720,13 +803,28 @@ function speakWithBrowser(text) {
     speechSynthesis.cancel();
     
     let cleanText = text;
+    
+    // Step 1: Remove ALL emojis first (prevents TTS reading emoji names)
+    cleanText = cleanText.replace(/[\u{1F300}-\u{1F9FF}]/gu, '');
+    cleanText = cleanText.replace(/[\u{2600}-\u{26FF}]/gu, '');
+    cleanText = cleanText.replace(/[\u{2700}-\u{27BF}]/gu, '');
+    cleanText = cleanText.replace(/[\u{1F600}-\u{1F64F}]/gu, '');
+    cleanText = cleanText.replace(/[\u{1F680}-\u{1F6FF}]/gu, '');
+    cleanText = cleanText.replace(/[\u{1FA00}-\u{1FAFF}]/gu, '');
+    
+    // Step 2: Apply phonetic corrections for Hindi words
     for (const [word, replacement] of Object.entries(phoneticCorrections)) {
         const regex = new RegExp(`\\b${word}\\b`, 'gi');
         cleanText = cleanText.replace(regex, replacement);
     }
     
+    // Step 3: Clean markdown and formatting
     cleanText = cleanText
         .replace(/\*\*/g, '')
+        .replace(/\*/g, '')
+        .replace(/^#+\s*/gm, '')
+        .replace(/^[-*•]\s*/gm, '')
+        .replace(/^\d+\.\s*/gm, '')
         .replace(/\n/g, '. ')
         .replace(/\s+/g, ' ')
         .trim();
