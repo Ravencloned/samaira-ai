@@ -4,8 +4,9 @@ uvicorn[standard]==0.27.0
 python-dotenv==1.0.0
 pydantic==2.5.3
 
-# Google Gemini
+# LLM Providers
 google-generativeai==0.4.0
+httpx==0.26.0  # For Groq API calls
 
 # Speech Processing
 openai-whisper==20231117
@@ -13,7 +14,6 @@ soundfile==0.12.1
 numpy==1.26.3
 
 # HTTP & Async
-httpx==0.26.0
 python-multipart==0.0.6
 
 # Utilities

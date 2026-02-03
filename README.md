@@ -24,14 +24,16 @@
 ## ✨ Features
 
 ### 🎙️ Voice-First Experience
-- **Speech-to-Text**: Whisper-powered transcription for Hinglish
-- **Text-to-Speech**: Natural voice responses with Hindi pronunciation
+- **Speech-to-Text**: Whisper-powered transcription optimized for Hinglish
+- **Text-to-Speech**: Natural voice responses (ElevenLabs or browser fallback)
 - **Click-to-Record**: Simple voice input interface
 
-### 💬 Intelligent Conversations
-- **Context-Aware**: Remembers your goals and preferences throughout the conversation
-- **Hinglish Native**: Speaks naturally like a friendly financial advisor
-- **Educational Focus**: Explains concepts simply with relatable examples
+### 💬 Intelligent Conversations (ChatGPT-like Experience)
+- **Streaming Responses**: Real-time word-by-word responses
+- **Markdown Rendering**: Beautiful formatted responses with lists, bold, headers
+- **Suggested Questions**: Context-aware follow-up suggestions
+- **Chat History**: Persisted conversation history in sidebar
+- **Dark Mode**: Easy on the eyes, day or night
 
 ### 📊 Financial Tools
 - **SIP Calculator**: Mutual fund investment projections
@@ -63,32 +65,34 @@
 
 ### Backend
 - **Framework**: FastAPI (Python 3.10+)
-- **LLM**: Google Gemini 2.0 Flash
+- **LLM**: Groq (Llama 3.3 70B) - FREE, or Google Gemini
 - **Speech Recognition**: OpenAI Whisper
-- **Session Management**: In-memory store
+- **TTS**: ElevenLabs (natural voice) or Browser fallback
+- **Session Management**: In-memory store with localStorage persistence
 
 ### Frontend
-- **UI**: Vanilla HTML/CSS/JavaScript
-- **Voice**: Web Speech API
-- **Design**: Mobile-first responsive
+- **UI**: Modern ChatGPT-inspired design
+- **Markdown**: marked.js for rich formatting
+- **Voice**: Web Speech API + ElevenLabs
+- **Design**: Mobile-first responsive with dark mode
 
 ### AI/ML
-- **Language Model**: Gemini for conversational AI
+- **Language Model**: Groq (Llama 3.3 70B) - FREE tier, 30 req/min
 - **ASR**: Whisper (small model optimized for Hinglish)
-- **TTS**: Browser Web Speech API with Hindi voice support
+- **TTS**: ElevenLabs (10K chars/month free) or Browser API
 
 ## 📦 Installation
 
 ### Prerequisites
 - Python 3.10 or higher
 - ffmpeg (for audio processing)
-- Google Gemini API key
+- Groq API key (FREE at https://console.groq.com/keys)
 
 ### Quick Start
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/samaira-ai.git
+git clone https://github.com/Ravencloned/samaira-ai.git
 cd samaira-ai
 ```
 
@@ -106,19 +110,36 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. **Configure environment**
+4. **Get FREE API keys**
+
+   **Groq (Required - FREE):**
+   - Go to https://console.groq.com/keys
+   - Create account and get API key
+   - 30 requests/minute FREE!
+
+   **ElevenLabs (Optional - FREE):**
+   - Go to https://elevenlabs.io
+   - Create account for natural TTS
+   - 10,000 characters/month FREE!
+
+5. **Configure environment**
 ```bash
-cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
+# Edit .env file with your keys:
+GROQ_API_KEY=gsk_your_key_here
+LLM_PROVIDER=groq
+
+# Optional for better voice:
+ELEVENLABS_API_KEY=your_key_here
+TTS_PROVIDER=elevenlabs
 ```
 
-5. **Run the server**
+6. **Run the server**
 ```bash
 cd backend
 uvicorn main:app --reload --port 8000
 ```
 
-6. **Open the app**
+7. **Open the app**
 ```
 http://localhost:8000/
 ```
@@ -129,11 +150,14 @@ http://localhost:8000/
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `GEMINI_API_KEY` | Google Gemini API key | Required |
+| `GROQ_API_KEY` | Groq API key (FREE) | Required |
+| `LLM_PROVIDER` | LLM provider (`groq` or `gemini`) | `groq` |
+| `GEMINI_API_KEY` | Google Gemini API key (backup) | Optional |
+| `ELEVENLABS_API_KEY` | ElevenLabs TTS key (FREE tier) | Optional |
+| `TTS_PROVIDER` | TTS provider (`elevenlabs` or `browser`) | `browser` |
 | `WHISPER_MODEL` | Whisper model size | `small` |
 | `HOST` | Server host | `127.0.0.1` |
 | `PORT` | Server port | `8000` |
-| `DEBUG` | Debug mode | `true` |
 
 ### Whisper Models
 - `tiny`: Fastest, lowest accuracy
@@ -153,14 +177,19 @@ samaira-ai/
 │   ├── core/                # Core business logic & state management
 │   ├── financial/           # Calculators & government schemes
 │   ├── prompts/             # LLM system prompts
-│   ├── services/            # Gemini, Whisper, TTS integrations
+│   ├── services/            # LLM, Whisper, TTS integrations
+│   │   ├── groq_client.py   # Groq/Llama 3 client
+│   │   ├── gemini_client.py # Google Gemini client
+│   │   ├── llm_service.py   # Unified LLM interface
+│   │   ├── elevenlabs_tts.py# Natural TTS
+│   │   └── whisper_asr.py   # Speech recognition
 │   └── main.py              # FastAPI application entry
 ├── frontend/
-│   ├── index.html           # Main chat UI
-│   ├── styles.css           # Modern responsive styling
-│   ├── app.js               # Chat logic & TTS
+│   ├── index.html           # Modern ChatGPT-like UI
+│   ├── styles.css           # Premium styling + dark mode
+│   ├── app.js               # Streaming, markdown, TTS
 │   └── voice.js             # Voice recording handler
-├── .env.example             # Environment template
+├── .env                     # Your API keys (create from .env.example)
 ├── requirements.txt         # Python dependencies
 └── README.md
 ```
