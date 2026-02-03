@@ -6,10 +6,74 @@
 // Voice State
 const VoiceState = {
     isRecording: false,
+    isSpeaking: false,
+    isProcessing: false,
+    conversationMode: true,  // Auto-listen after AI speaks
     mediaRecorder: null,
     audioChunks: [],
-    stream: null
+    stream: null,
+    currentAudio: null,      // ElevenLabs audio element
+    currentUtterance: null   // Browser TTS utterance
 };
+
+// Stop any ongoing TTS immediately
+function stopSpeaking() {
+    VoiceState.isSpeaking = false;
+    
+    // Stop ElevenLabs audio
+    if (VoiceState.currentAudio) {
+        VoiceState.currentAudio.pause();
+        VoiceState.currentAudio.currentTime = 0;
+        VoiceState.currentAudio = null;
+    }
+    
+    // Stop browser TTS
+    if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+    }
+    VoiceState.currentUtterance = null;
+    
+    // Update visual state
+    updateVoiceStatusUI('');
+    console.log('🔇 TTS stopped');
+}
+
+// Called when AI finishes speaking (for conversation mode)
+function onSpeechComplete() {
+    VoiceState.isSpeaking = false;
+    updateVoiceStatusUI('');
+    
+    // Auto-start listening in conversation mode
+    if (VoiceState.conversationMode && !VoiceState.isRecording && !VoiceState.isProcessing) {
+        setTimeout(() => {
+            if (!VoiceState.isRecording && !VoiceState.isSpeaking) {
+                startRecording();
+            }
+        }, 500);  // Small delay before auto-listen
+    }
+}
+
+// Update visual status indicator
+function updateVoiceStatusUI(status) {
+    let statusEl = document.getElementById('voice-status');
+    if (!statusEl) {
+        statusEl = document.createElement('div');
+        statusEl.id = 'voice-status';
+        statusEl.className = 'voice-status';
+        const inputArea = document.querySelector('.input-area');
+        if (inputArea) {
+            inputArea.parentNode.insertBefore(statusEl, inputArea);
+        }
+    }
+    
+    if (status) {
+        statusEl.textContent = status;
+        statusEl.classList.add('active');
+    } else {
+        statusEl.classList.remove('active');
+        statusEl.textContent = '';
+    }
+}
 
 // Initialize voice functionality
 document.addEventListener('DOMContentLoaded', initVoice);
@@ -29,12 +93,36 @@ function initVoice() {
     // Click to toggle recording
     if (micBtn) {
         micBtn.addEventListener('click', () => {
+            // ALWAYS stop TTS first when mic is clicked
+            if (VoiceState.isSpeaking) {
+                stopSpeaking();
+            }
+            
             if (VoiceState.isRecording) {
                 stopRecording();
             } else {
                 startRecording();
             }
         });
+    }
+    
+    // Add conversation mode toggle
+    const convModeBtn = document.createElement('button');
+    convModeBtn.id = 'conv-mode-btn';
+    convModeBtn.className = 'conv-mode-btn active';
+    convModeBtn.innerHTML = '🔄';
+    convModeBtn.title = 'Conversation Mode: ON (auto-listen after AI speaks)';
+    convModeBtn.addEventListener('click', () => {
+        VoiceState.conversationMode = !VoiceState.conversationMode;
+        convModeBtn.classList.toggle('active', VoiceState.conversationMode);
+        convModeBtn.title = VoiceState.conversationMode ? 
+            'Conversation Mode: ON (auto-listen after AI speaks)' : 
+            'Conversation Mode: OFF';
+    });
+    
+    const inputActions = document.querySelector('.input-actions');
+    if (inputActions && micBtn) {
+        inputActions.insertBefore(convModeBtn, micBtn);
     }
     
     console.log('🎤 Voice input initialized');
@@ -77,6 +165,7 @@ async function startRecording() {
             micBtn.textContent = '⏹️';
         }
         
+        updateVoiceStatusUI('🎤 Listening...');
         console.log('Recording started');
         
     } catch (error) {
@@ -106,6 +195,8 @@ function stopRecording() {
         micBtn.textContent = '🎤';
     }
     
+    updateVoiceStatusUI('⏳ Processing...');
+    VoiceState.isProcessing = true;
     console.log('Recording stopped');
 }
 
@@ -205,6 +296,9 @@ async function processVoiceInput(audioBlob) {
         if (typing) typing.remove();
         
         addVoiceMessage('ai', 'Maaf kijiye, aapki awaaz process karne mein problem hui. Please try again.');
+    } finally {
+        VoiceState.isProcessing = false;
+        updateVoiceStatusUI('');
     }
 }
 
@@ -290,3 +384,6 @@ function getSupportedMimeType() {
 window.VoiceState = VoiceState;
 window.startRecording = startRecording;
 window.stopRecording = stopRecording;
+window.stopSpeaking = stopSpeaking;
+window.onSpeechComplete = onSpeechComplete;
+window.updateVoiceStatusUI = updateVoiceStatusUI;

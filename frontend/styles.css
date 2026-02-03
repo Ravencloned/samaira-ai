@@ -870,3 +870,72 @@ body {
     background: var(--accent-light);
     color: var(--accent-hover);
 }
+
+/* ===== VOICE STATUS INDICATOR ===== */
+.voice-status {
+    text-align: center;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    color: var(--accent);
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    margin-bottom: -8px;
+}
+
+.voice-status.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ===== CONVERSATION MODE BUTTON ===== */
+.conv-mode-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: var(--transition);
+    opacity: 0.6;
+}
+
+.conv-mode-btn:hover {
+    background: var(--border-color);
+    opacity: 0.8;
+}
+
+.conv-mode-btn.active {
+    background: var(--accent-light);
+    color: var(--accent);
+    opacity: 1;
+}
+
+[data-theme="dark"] .conv-mode-btn.active {
+    background: rgba(234, 88, 12, 0.2);
+    color: var(--accent);
+}
+
+/* Voice button speaking animation */
+.voice-btn.speaking {
+    background: var(--accent);
+    color: white;
+    animation: speaking-pulse 1s infinite;
+}
+
+@keyframes speaking-pulse {
+    0%, 100% { 
+        box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.4);
+        transform: scale(1);
+    }
+    50% { 
+        box-shadow: 0 0 0 6px rgba(234, 88, 12, 0);
+        transform: scale(1.05);
+    }
+}

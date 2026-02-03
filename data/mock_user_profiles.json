@@ -1,0 +1,206 @@
+{
+    "profiles": [
+        {
+            "id": "ramesh_001",
+            "name": "Ramesh Sharma",
+            "age": 35,
+            "occupation": "Shop Owner",
+            "location": "Indore, MP",
+            "monthly_income": 45000,
+            "monthly_savings_capacity": 8000,
+            "family": {
+                "spouse": "Sunita",
+                "children": [
+                    {
+                        "name": "Aarav",
+                        "age": 8,
+                        "relation": "son"
+                    }
+                ]
+            },
+            "goals": [
+                {
+                    "type": "child_education",
+                    "description": "Beta ki engineering ki padhai",
+                    "target_year": 2034,
+                    "estimated_corpus": 2500000
+                }
+            ],
+            "risk_preference": "conservative",
+            "existing_investments": [
+                {
+                    "type": "FD",
+                    "amount": 100000,
+                    "bank": "SBI"
+                },
+                {
+                    "type": "LIC",
+                    "monthly_premium": 2000,
+                    "policy_name": "Jeevan Anand"
+                }
+            ],
+            "preferred_language": "hinglish",
+            "tech_comfort": "medium",
+            "sample_queries": [
+                "Mere bete ki padhai ke liye kitna paisa chahiye?",
+                "SIP aur RD mein se kya better hai?",
+                "PPF mein kitna safe hai?",
+                "10 saal mein 25 lakh kaise bana sakte hain?"
+            ],
+            "persona_notes": "Conservative investor, trusts government schemes, shops in main market, uses UPI for daily transactions"
+        },
+        {
+            "id": "priya_002",
+            "name": "Priya Patel",
+            "age": 28,
+            "occupation": "School Teacher",
+            "location": "Surat, Gujarat",
+            "monthly_income": 35000,
+            "monthly_savings_capacity": 10000,
+            "family": {
+                "spouse": null,
+                "children": [],
+                "parents_dependent": true
+            },
+            "goals": [
+                {
+                    "type": "home_downpayment",
+                    "description": "Apna ghar lena hai",
+                    "target_year": 2030,
+                    "estimated_corpus": 1500000
+                },
+                {
+                    "type": "retirement",
+                    "description": "Early retirement planning",
+                    "target_year": 2049,
+                    "estimated_corpus": 10000000
+                }
+            ],
+            "risk_preference": "moderate",
+            "existing_investments": [
+                {
+                    "type": "NPS",
+                    "monthly_contribution": 3000
+                },
+                {
+                    "type": "RD",
+                    "monthly_amount": 5000,
+                    "bank": "Post Office"
+                }
+            ],
+            "preferred_language": "hinglish",
+            "tech_comfort": "high",
+            "sample_queries": [
+                "NPS mein kitna tax benefit milta hai?",
+                "5 saal mein ghar ka down payment kaise karein?",
+                "Mutual fund safe hai kya?",
+                "Emergency fund kitna rakhna chahiye?"
+            ],
+            "persona_notes": "Single working woman, tech savvy, interested in tax saving, reads financial blogs"
+        },
+        {
+            "id": "suresh_003",
+            "name": "Suresh Kumar",
+            "age": 50,
+            "occupation": "Government Employee",
+            "location": "Jaipur, Rajasthan",
+            "monthly_income": 65000,
+            "monthly_savings_capacity": 15000,
+            "family": {
+                "spouse": "Kamla",
+                "children": [
+                    {
+                        "name": "Neha",
+                        "age": 22,
+                        "relation": "daughter"
+                    },
+                    {
+                        "name": "Rohit",
+                        "age": 18,
+                        "relation": "son"
+                    }
+                ]
+            },
+            "goals": [
+                {
+                    "type": "daughter_wedding",
+                    "description": "Beti ki shadi",
+                    "target_year": 2027,
+                    "estimated_corpus": 1000000
+                },
+                {
+                    "type": "retirement",
+                    "description": "Retirement corpus",
+                    "target_year": 2034,
+                    "estimated_corpus": 5000000
+                }
+            ],
+            "risk_preference": "conservative",
+            "existing_investments": [
+                {
+                    "type": "PPF",
+                    "total_balance": 800000
+                },
+                {
+                    "type": "EPF",
+                    "total_balance": 1500000
+                },
+                {
+                    "type": "FD",
+                    "amount": 500000
+                }
+            ],
+            "preferred_language": "hinglish",
+            "tech_comfort": "low",
+            "sample_queries": [
+                "Retirement ke baad kitna pension milega?",
+                "Beti ke liye Sukanya Yojana late nahi ho gaya?",
+                "Senior Citizen Savings Scheme kaise kholein?",
+                "PPF extend karna chahiye ya withdraw?"
+            ],
+            "persona_notes": "Risk averse, nearing retirement, relies on government schemes, prefers offline banking"
+        }
+    ],
+    "common_scenarios": [
+        {
+            "scenario": "first_time_investor",
+            "typical_questions": [
+                "Investment kaise shuru karein?",
+                "SIP kya hota hai?",
+                "₹5000 se kya kar sakte hain?",
+                "Mutual fund risky hai kya?"
+            ],
+            "recommended_flow": "education_first -> risk_assessment -> goal_setting -> product_recommendation"
+        },
+        {
+            "scenario": "goal_based_planning",
+            "typical_questions": [
+                "Bachhe ki padhai ke liye planning",
+                "Ghar ke liye down payment",
+                "Beti ki shadi",
+                "Retirement planning"
+            ],
+            "recommended_flow": "goal_capture -> corpus_calculation -> monthly_requirement -> product_options"
+        },
+        {
+            "scenario": "product_comparison",
+            "typical_questions": [
+                "SIP vs RD",
+                "FD vs Debt Fund",
+                "PPF vs NPS",
+                "Term vs Endowment"
+            ],
+            "recommended_flow": "understand_context -> show_comparison -> risk_explanation -> personalized_recommendation"
+        },
+        {
+            "scenario": "tax_planning",
+            "typical_questions": [
+                "80C mein kya kya aata hai?",
+                "Tax bachane ke liye kya karein?",
+                "NPS ka extra benefit",
+                "ELSS kya hai?"
+            ],
+            "recommended_flow": "current_investment_check -> gap_analysis -> product_options -> disclaimer"
+        }
+    ]
+}

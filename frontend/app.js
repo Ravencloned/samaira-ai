@@ -541,24 +541,86 @@ let selectedVoice = null;
 let audioContext = null;
 
 const phoneticCorrections = {
-    'try': 'traay',
+    // Common Hindi words
+    'hai': 'hay',
+    'hain': 'hain',
+    'mein': 'main',
     'kijiye': 'kee-jee-yay',
     'chahiye': 'chaa-hee-yay',
     'karein': 'ka-rain',
     'sakti': 'sak-tee',
     'sakta': 'sak-taa',
-    'hai': 'hay',
-    'hain': 'hain',
-    'mein': 'main',
+    'aapka': 'aap-kaa',
+    'aapki': 'aap-kee',
+    'kaise': 'kai-say',
+    'bahut': 'ba-hut',
+    'accha': 'ach-chaa',
+    'achha': 'ach-chaa',
+    'paisa': 'pai-saa',
+    'paise': 'pai-say',
+    'rupaye': 'ru-pa-yay',
+    'lakshya': 'laksh-ya',
+    'bachat': 'ba-chat',
+    'nivesh': 'ni-vesh',
+    'bataiye': 'ba-taa-ee-yay',
+    'samjhiye': 'sam-jhi-yay',
+    'dekhiye': 'day-khi-yay',
+    'suniye': 'su-ni-yay',
+    'dijiye': 'dee-ji-yay',
+    'lijiye': 'lee-ji-yay',
+    'rakhiye': 'ra-khi-yay',
+    'jaaniye': 'jaa-ni-yay',
+    'namaste': 'na-mas-tay',
+    'dhanyavaad': 'dhan-ya-vaad',
+    'shukriya': 'shuk-ri-yaa',
+    'zaroor': 'za-roor',
+    'zaruri': 'za-roo-ree',
+    'faayda': 'faa-ee-daa',
+    'nuksaan': 'nuk-saan',
+    'aasaan': 'aa-saan',
+    'mushkil': 'mush-kil',
+    'madad': 'ma-dad',
+    'sawal': 'sa-waal',
+    'jawab': 'ja-waab',
+    'sahi': 'sa-hee',
+    'galat': 'ga-lat',
+    'pehle': 'peh-lay',
+    'baad': 'baad',
+    'abhi': 'ab-hee',
+    'jaldi': 'jal-dee',
+    'dheere': 'dhee-ray',
+    'aur': 'aur',
+    'ya': 'yaa',
+    'lekin': 'lay-kin',
+    'isliye': 'is-li-yay',
+    'kyunki': 'kyun-ki',
+    'agar': 'a-gar',
+    'toh': 'toh',
+    'matlab': 'mat-lab',
+    'samajh': 'sa-majh',
+    'try': 'traay',
+    // Financial terms
     'SIP': 'sip',
     'RD': 'aar dee',
     'PPF': 'pee pee eff',
     'NPS': 'en pee ess',
     'EMI': 'ee em aai',
     'FD': 'eff dee',
+    'MF': 'em eff',
+    'ELSS': 'ee el es es',
+    'ITR': 'aai tee aar',
+    'TDS': 'tee dee es',
+    'GST': 'jee es tee',
+    'PAN': 'pan card',
+    'KYC': 'kay why see',
     '₹': 'rupees',
     'lakh': 'laakh',
-    'crore': 'crore'
+    'lakhs': 'laakhs',
+    'crore': 'crore',
+    'crores': 'crores',
+    // Samaira specific
+    'Samaira': 'Sa-mai-raa',
+    'SamairaAI': 'Sa-mai-raa A I'
 };
 
 async function checkTTSProvider() {
@@ -573,6 +635,19 @@ async function checkTTSProvider() {
 }
 
 async function speakText(text) {
+    // Stop any current speech first
+    if (window.stopSpeaking) {
+        window.stopSpeaking();
+    }
+    
+    // Set speaking state
+    if (window.VoiceState) {
+        window.VoiceState.isSpeaking = true;
+    }
+    if (window.updateVoiceStatusUI) {
+        window.updateVoiceStatusUI('🔊 Speaking...');
+    }
+    
     // Try premium TTS first
     if (AppState.usePremiumTTS) {
         try {
@@ -598,14 +673,49 @@ async function speakText(text) {
 
 function playAudioBase64(base64Audio) {
     const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+    
+    // Track audio element for interruption
+    if (window.VoiceState) {
+        window.VoiceState.currentAudio = audio;
+    }
+    
+    audio.onended = () => {
+        if (window.VoiceState) {
+            window.VoiceState.currentAudio = null;
+        }
+        // Trigger conversation mode callback
+        if (window.onSpeechComplete) {
+            window.onSpeechComplete();
+        }
+    };
+    
+    audio.onerror = () => {
+        if (window.VoiceState) {
+            window.VoiceState.currentAudio = null;
+            window.VoiceState.isSpeaking = false;
+        }
+        if (window.updateVoiceStatusUI) {
+            window.updateVoiceStatusUI('');
+        }
+    };
+    
     audio.play().catch(e => {
         console.log('Audio playback failed:', e);
-        // User interaction required - show a play button
+        if (window.VoiceState) {
+            window.VoiceState.isSpeaking = false;
+        }
+        if (window.updateVoiceStatusUI) {
+            window.updateVoiceStatusUI('');
+        }
     });
 }
 
 function speakWithBrowser(text) {
-    if (!('speechSynthesis' in window)) return;
+    if (!('speechSynthesis' in window)) {
+        if (window.VoiceState) window.VoiceState.isSpeaking = false;
+        if (window.updateVoiceStatusUI) window.updateVoiceStatusUI('');
+        return;
+    }
     
     speechSynthesis.cancel();
     
@@ -623,14 +733,39 @@ function speakWithBrowser(text) {
     
     const utterance = new SpeechSynthesisUtterance(cleanText);
     
+    // Track utterance for interruption
+    if (window.VoiceState) {
+        window.VoiceState.currentUtterance = utterance;
+    }
+    
     const voice = getBestVoice();
     if (voice) {
         utterance.voice = voice;
         utterance.lang = voice.lang;
     }
     
-    utterance.rate = 0.9;
+    utterance.rate = 0.95;
     utterance.pitch = 1.0;
+    
+    // Handle speech end for conversation mode
+    utterance.onend = () => {
+        if (window.VoiceState) {
+            window.VoiceState.currentUtterance = null;
+        }
+        if (window.onSpeechComplete) {
+            window.onSpeechComplete();
+        }
+    };
+    
+    utterance.onerror = () => {
+        if (window.VoiceState) {
+            window.VoiceState.currentUtterance = null;
+            window.VoiceState.isSpeaking = false;
+        }
+        if (window.updateVoiceStatusUI) {
+            window.updateVoiceStatusUI('');
+        }
+    };
     
     speechSynthesis.speak(utterance);
 }
@@ -640,19 +775,34 @@ function getBestVoice() {
     
     const voices = ttsVoices.length > 0 ? ttsVoices : speechSynthesis.getVoices();
     
-    // Priority: Hindi > Indian English Microsoft > Indian English > English
-    selectedVoice = voices.find(v => v.lang === 'hi-IN' && v.name.includes('Female')) ||
-                    voices.find(v => v.lang === 'hi-IN') ||
-                    voices.find(v => v.name.includes('Neerja') || v.name.includes('Heera')) ||
-                    voices.find(v => v.name.includes('Microsoft') && v.lang.includes('IN')) ||
-                    voices.find(v => v.lang === 'en-IN' && v.name.toLowerCase().includes('female')) ||
-                    voices.find(v => v.lang === 'en-IN') ||
-                    voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female')) ||
-                    voices.find(v => v.lang.startsWith('en')) ||
-                    voices[0];
+    // Priority order for best Indian pronunciation:
+    // 1. Microsoft Neerja (Hindi) - best for Hinglish
+    // 2. Microsoft Heera (Hindi) 
+    // 3. Any hi-IN female voice
+    // 4. Any hi-IN voice
+    // 5. Microsoft Indian English voices (Neerja Online, Ravi)
+    // 6. Any en-IN female voice
+    // 7. Any en-IN voice
+    // 8. Google UK English Female (decent Hindi pronunciation)
+    // 9. Any female English voice
+    // 10. Any English voice
+    
+    selectedVoice = 
+        voices.find(v => v.name.includes('Neerja') && v.lang === 'hi-IN') ||
+        voices.find(v => v.name.includes('Heera') && v.lang === 'hi-IN') ||
+        voices.find(v => v.lang === 'hi-IN' && v.name.toLowerCase().includes('female')) ||
+        voices.find(v => v.lang === 'hi-IN') ||
+        voices.find(v => v.name.includes('Neerja')) ||
+        voices.find(v => v.name.includes('Microsoft') && v.lang === 'en-IN') ||
+        voices.find(v => v.lang === 'en-IN' && v.name.toLowerCase().includes('female')) ||
+        voices.find(v => v.lang === 'en-IN') ||
+        voices.find(v => v.name.includes('Google UK English Female')) ||
+        voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female')) ||
+        voices.find(v => v.lang.startsWith('en')) ||
+        voices[0];
     
     if (selectedVoice) {
-        console.log('Selected voice:', selectedVoice.name, selectedVoice.lang);
+        console.log('🔊 Selected voice:', selectedVoice.name, selectedVoice.lang);
     }
     
     return selectedVoice;
