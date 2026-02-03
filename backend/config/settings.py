@@ -16,6 +16,11 @@ class Settings:
     
     # API Keys
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")  # Free LLM API
+    ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")  # Natural TTS
+    
+    # LLM Provider: "groq" (recommended, free) or "gemini"
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq")
     
     # Server
     HOST: str = os.getenv("HOST", "127.0.0.1")
@@ -25,8 +30,8 @@ class Settings:
     # Whisper
     WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "small")
     
-    # TTS
-    TTS_PROVIDER: str = os.getenv("TTS_PROVIDER", "browser")
+    # TTS Provider: "elevenlabs" (natural) or "browser" (fallback)
+    TTS_PROVIDER: str = os.getenv("TTS_PROVIDER", "elevenlabs")
     
     # Session
     SESSION_TIMEOUT_MINUTES: int = int(os.getenv("SESSION_TIMEOUT_MINUTES", "30"))
