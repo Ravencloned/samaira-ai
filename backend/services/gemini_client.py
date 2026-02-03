@@ -112,7 +112,7 @@ Never recommend specific funds or stocks. Only provide educational information."
         except Exception as e:
             # Handle errors gracefully
             print(f"Gemini API error: {e}")
-            return self._get_fallback_response(str(e))
+            return self._get_smart_fallback(user_message, str(e))
     
     def chat_sync(
         self,
@@ -140,7 +140,7 @@ Never recommend specific funds or stocks. Only provide educational information."
             return response.text
         except Exception as e:
             print(f"Gemini API error: {e}")
-            return self._get_fallback_response(str(e))
+            return self._get_smart_fallback(user_message, str(e))
     
     def _build_user_context(self, session: SessionState) -> str:
         """Build context string from session state."""
@@ -181,21 +181,125 @@ Never recommend specific funds or stocks. Only provide educational information."
                 "Kya aap apna sawaal dobara puch sakte hain?"
             )
     
+    def _get_smart_fallback(self, user_message: str, error: str) -> str:
+        """Get a contextual fallback response based on user's message."""
+        message_lower = user_message.lower()
+        
+        # Greeting detection
+        greetings = ["hi", "hello", "namaste", "hey", "hola", "kaise", "how are", "can you hear", "sun", "suno"]
+        if any(g in message_lower for g in greetings):
+            return (
+                "Namaste! Haan main sun sakti hoon! 🙏 Main SamairaAI hoon - aapki financial friend.\n\n"
+                "Main aapki madad kar sakti hoon:\n"
+                "- **SIP vs RD** comparison\n"
+                "- **PPF, NPS** government schemes\n"
+                "- **Emergency Fund** planning\n"
+                "- **Goal-based savings** - education, wedding, retirement\n\n"
+                "Batao, kya jaanna chahte ho?"
+            )
+        
+        # SIP queries
+        if "sip" in message_lower:
+            return (
+                "**SIP (Systematic Investment Plan)** ek smart investment tarika hai!\n\n"
+                "📊 **Kaise kaam karta hai:**\n"
+                "- Har mahine fixed amount mutual funds mein invest hoti hai\n"
+                "- ₹500/month se bhi start kar sakte ho\n"
+                "- Market ups-downs ka average nikalta hai (Rupee Cost Averaging)\n\n"
+                "📈 **Example:**\n"
+                "- ₹5,000/month × 10 years × 12% returns\n"
+                "- Total invested: ₹6 lakhs\n"
+                "- Expected value: ~₹11.6 lakhs!\n\n"
+                "Kya aap SIP vs RD compare karna chahenge?"
+            )
+        
+        # RD queries
+        if "rd" in message_lower or "recurring" in message_lower:
+            return (
+                "**RD (Recurring Deposit)** bank mein safe savings option hai!\n\n"
+                "🏦 **Features:**\n"
+                "- Fixed monthly deposit\n"
+                "- Guaranteed interest (6-7% currently)\n"
+                "- 6 months to 10 years tenure\n"
+                "- No market risk\n\n"
+                "📊 **Example:**\n"
+                "- ₹5,000/month × 5 years × 6.5% interest\n"
+                "- Total deposited: ₹3 lakhs\n"
+                "- Maturity value: ~₹3.5 lakhs\n\n"
+                "Short-term goals ke liye RD perfect hai!"
+            )
+        
+        # PPF queries
+        if "ppf" in message_lower:
+            return (
+                "**PPF (Public Provident Fund)** government-backed safe investment hai!\n\n"
+                "✅ **Benefits:**\n"
+                "- Interest rate: ~7.1% (tax-free!)\n"
+                "- Lock-in: 15 years\n"
+                "- Tax deduction: Section 80C (₹1.5 lakh/year)\n"
+                "- Government guarantee - 100% safe\n\n"
+                "📊 **Limits:**\n"
+                "- Minimum: ₹500/year\n"
+                "- Maximum: ₹1.5 lakh/year\n\n"
+                "Bachon ki education ya retirement ke liye perfect!"
+            )
+        
+        # Emergency fund
+        if "emergency" in message_lower or "fund" in message_lower:
+            return (
+                "**Emergency Fund** sabse pehle banana chahiye! 🚨\n\n"
+                "📋 **Kitna rakhein:**\n"
+                "- Single income: 6 months expenses\n"
+                "- Dual income: 3-4 months expenses\n\n"
+                "🏦 **Kahaan rakhein:**\n"
+                "- Savings account (easy access)\n"
+                "- Liquid mutual funds (better returns)\n"
+                "- FD with premature withdrawal option\n\n"
+                "⚠️ **Kab use karein:**\n"
+                "- Job loss\n"
+                "- Medical emergency\n"
+                "- Urgent home repairs\n\n"
+                "Pehle emergency fund, phir investments!"
+            )
+        
+        # Comparison queries
+        if "vs" in message_lower or "compare" in message_lower or "better" in message_lower:
+            return (
+                "Main aapko compare kar ke bata sakti hoon! 📊\n\n"
+                "**Popular comparisons:**\n"
+                "- SIP vs RD - Market-linked vs Fixed returns\n"
+                "- PPF vs FD - Long-term tax-free vs Short-term\n"
+                "- NPS vs PPF - Retirement planning options\n"
+                "- Mutual Funds vs Stocks - Professional vs Direct\n\n"
+                "Kaunsi schemes compare karni hain?"
+            )
+        
+        # Default helpful response
+        return (
+            "Hmm, main samajh gayi! 🤔\n\n"
+            "Main in topics mein expert hoon:\n"
+            "- **SIP/Mutual Funds** - Long-term wealth building\n"
+            "- **RD/FD** - Safe, guaranteed returns\n"
+            "- **PPF/NPS** - Tax-saving + retirement\n"
+            "- **Emergency Fund** - Financial safety net\n"
+            "- **Goal Planning** - Education, wedding, home\n\n"
+            "Kya specific jaanna chahte ho? Main Hinglish mein simple tarike se samjhaungi!"
+        )
+    
     def _get_demo_response(self) -> str:
-        """Get a demo response when API is unavailable."""
-        import random
-        demo_responses = [
-            "Bahut accha sawaal hai! Dekho, financial planning mein sabse pehle emergency fund banana zaroori hai - lagbhag 3-6 months ki expenses rakho. Uske baad hi SIP ya investments start karo. Kya aap emergency fund ke baare mein aur jaanna chahte hain?",
-            
-            "SIP aur RD mein main farak yeh hai: SIP mein aapka paisa mutual funds mein jaata hai jo market ke saath grow karta hai, jabki RD mein fixed interest milta hai. Long term ke liye (5+ years), SIP usually better returns deta hai, lekin short term ke liye RD safe hai.",
-            
-            "PPF ek bahut hi safe government scheme hai. 15 saal ka lock-in hota hai, lekin tax benefits bhi milte hain - Section 80C ke under 1.5 lakh tak deduction. Interest rate quarterly change hota hai, abhi lagbhag 7.1% hai. Bacchon ki education ke liye perfect hai!",
-            
-            "Emergency fund banaane ka sabse simple tarika: Har mahine apni salary ka 10-20% alag rakho ek savings account mein. Target rakho 3-6 months ki expenses cover ho jaaye. Yeh paisa sirf emergency ke liye use karo - job loss, medical emergency, ya urgent repairs ke liye.",
-            
-            "Namaste! Main SamairaAI hoon. Aap mujhse kuch bhi puch sakte ho - SIP vs RD comparison, PPF ke benefits, bachon ki education planning, ya koi bhi financial sawaal. Main simple Hinglish mein samjhaaungi!"
-        ]
-        return random.choice(demo_responses)
+        """Get a demo response when API is unavailable - but make it contextual."""
+        # This will be used when we have last_message context
+        return (
+            "Namaste! Main SamairaAI hoon - aapki financial literacy companion. "
+            "Abhi mera AI brain thoda busy hai, lekin main phir bhi basic help kar sakti hoon!\n\n"
+            "Aap mujhse puch sakte ho:\n"
+            "- **SIP** (Systematic Investment Plan) ke baare mein\n"
+            "- **RD** (Recurring Deposit) kaise kaam karta hai\n"
+            "- **PPF** (Public Provident Fund) ke benefits\n"
+            "- **Emergency Fund** kaise banayein\n"
+            "- **Goal Planning** - education, wedding, retirement\n\n"
+            "Batao, kismein help chahiye?"
+        )
 
 
 # Global client instance

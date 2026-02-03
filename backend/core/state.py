@@ -117,6 +117,14 @@ class SessionState:
         recent = self.conversation_history[-n:] if len(self.conversation_history) > n else self.conversation_history
         return [msg.to_dict() for msg in recent]
     
+    def get_conversation_history(self, n: int = 10) -> list[dict]:
+        """
+        Get conversation history in a simple format for LLM context.
+        Returns list of {role, content} dicts.
+        """
+        messages = self.conversation_history[-n:] if len(self.conversation_history) > n else self.conversation_history
+        return [{"role": msg.role, "content": msg.content} for msg in messages]
+    
     def get_gemini_history(self, n: int = 10) -> list[dict]:
         """
         Format history for Gemini API (role: user/model format).

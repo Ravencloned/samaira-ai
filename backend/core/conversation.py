@@ -17,7 +17,7 @@ from core.safety import (
     detect_projection_in_response,
     detect_calculation_in_response
 )
-from services.gemini_client import gemini_client
+from services.llm_service import llm_service
 from financial.calculators import (
     calculate_sip, 
     calculate_rd, 
@@ -107,7 +107,7 @@ class ConversationOrchestrator:
         )
         
         # Step 5: Get LLM response
-        llm_response = await gemini_client.chat(
+        llm_response = await llm_service.chat(
             user_message, session, context
         )
         
@@ -155,7 +155,7 @@ class ConversationOrchestrator:
                 "Politely decline specific recommendations but offer to educate about "
                 "how to evaluate options themselves. Maintain warm, helpful tone."
             )
-            response_text = await gemini_client.chat(user_message, session, context)
+            response_text = await llm_service.chat(user_message, session, context)
             session.mark_advisory_boundary()
         
         # For hard handoff triggers, use template response
