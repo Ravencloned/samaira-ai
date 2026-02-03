@@ -1,0 +1,72 @@
+# Safety Rules for SamairaAI
+# These patterns trigger advisory boundary detection
+
+## ADVISORY_BOUNDARY_TRIGGERS
+# User is asking for specific investment recommendations
+kaunsa fund
+which fund
+best fund
+best mutual fund
+recommend karo
+suggest karo
+kaunsa scheme
+which scheme best
+exact fund
+specific stock
+kaunsa share
+konsa share
+stock pick
+stock tip
+guarantee return
+pakka return
+sure profit
+fixed return guarantee
+
+## TAX_ADVISORY_TRIGGERS
+# Complex tax situations requiring CA/professional
+tax file karo
+ITR bhar do
+capital gains calculate
+HUF taxation
+NRI tax
+tax audit
+GST filing
+
+## LEGAL_TRIGGERS
+# Legal matters beyond financial literacy
+will banana
+estate planning
+property dispute
+legal action
+court case
+inheritance tax
+
+## COMPLAINT_TRIGGERS
+# Service complaints requiring human attention
+complaint
+grievance
+fraud hua
+scam
+money stuck
+refund chahiye
+manager se baat
+escalate
+
+## HANDOFF_REQUEST_TRIGGERS
+# User explicitly wants human
+advisor se baat
+human se connect
+real person
+asli aadmi
+manager chahiye
+call back
+phone karo
+
+## HIGH_VALUE_TRIGGERS
+# Large amounts needing professional advice
+crore invest
+50 lakh
+large amount
+bahut paisa
+life savings
+retirement corpus invest
