@@ -1,0 +1,24 @@
+# Core Backend
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-dotenv==1.0.0
+pydantic==2.5.3
+
+# Google Gemini
+google-generativeai==0.4.0
+
+# Speech Processing
+openai-whisper==20231117
+soundfile==0.12.1
+numpy==1.26.3
+
+# HTTP & Async
+httpx==0.26.0
+python-multipart==0.0.6
+
+# Utilities
+uuid6==2024.1.12
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
