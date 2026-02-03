@@ -1,49 +1,63 @@
 /**
- * SamairaAI - Main Application JavaScript
- * Handles chat interface, API communication, and UI state
+ * SamairaAI - Premium Chat Application
+ * Features: Streaming responses, Markdown rendering, Voice I/O, Dark mode
  */
 
-// API Configuration
-const API_BASE = 'http://localhost:8000/api';
+// ===== CONFIGURATION =====
+const API_BASE = '/api';
+const ENABLE_STREAMING = true;
 
-// Application State
+// ===== APPLICATION STATE =====
 const AppState = {
     sessionId: null,
     isProcessing: false,
+    messages: [],
+    chatHistory: JSON.parse(localStorage.getItem('samaira-chat-history') || '[]'),
     ttsEnabled: true,
-    messages: []
+    currentTheme: 'light',
+    usePremiumTTS: false  // Will check if ElevenLabs available
 };
 
-// DOM Elements
-const elements = {
-    welcomeScreen: document.getElementById('welcome-screen'),
-    chatMessages: document.getElementById('chat-messages'),
-    messageInput: document.getElementById('message-input'),
-    sendBtn: document.getElementById('send-btn'),
-    micBtn: document.getElementById('mic-btn'),
-    newChatBtn: document.getElementById('new-chat-btn'),
-    typingIndicator: document.getElementById('typing-indicator'),
-    recordingStatus: document.getElementById('recording-status')
-};
+// ===== DOM ELEMENTS =====
+const elements = {};
 
-// Initialize application
-document.addEventListener('DOMContentLoaded', initApp);
+// ===== INITIALIZATION =====
+document.addEventListener('DOMContentLoaded', () => {
+    initElements();
+    initTheme();
+    initEventListeners();
+    createSession();
+    loadChatHistory();
+    checkTTSProvider();
+    
+    console.log('🪷 SamairaAI initialized');
+});
 
-async function initApp() {
-    // Create new session
-    await createSession();
-    
-    // Set up event listeners
-    setupEventListeners();
-    
-    console.log('SamairaAI initialized');
+function initElements() {
+    elements.welcomeScreen = document.getElementById('welcome-screen');
+    elements.chatMessages = document.getElementById('chat-messages');
+    elements.chatArea = document.getElementById('chat-area');
+    elements.messageInput = document.getElementById('message-input');
+    elements.sendBtn = document.getElementById('send-btn');
+    elements.micBtn = document.getElementById('mic-btn');
+    elements.newChatBtn = document.getElementById('new-chat-btn');
+    elements.sidebar = document.getElementById('sidebar');
+    elements.sidebarOverlay = document.getElementById('sidebar-overlay');
+    elements.menuToggle = document.getElementById('menu-toggle');
+    elements.themeToggle = document.getElementById('theme-toggle');
+    elements.chatHistory = document.getElementById('chat-history');
 }
 
-function setupEventListeners() {
-    // Send button click
+function initTheme() {
+    const savedTheme = localStorage.getItem('samaira-theme') || 'light';
+    setTheme(savedTheme);
+}
+
+function initEventListeners() {
+    // Send message
     elements.sendBtn.addEventListener('click', handleSend);
     
-    // Enter key to send (Shift+Enter for new line)
+    // Enter to send (Shift+Enter for new line)
     elements.messageInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -52,381 +66,571 @@ function setupEventListeners() {
     });
     
     // Auto-resize textarea
-    elements.messageInput.addEventListener('input', () => {
-        elements.messageInput.style.height = 'auto';
-        elements.messageInput.style.height = Math.min(elements.messageInput.scrollHeight, 120) + 'px';
-    });
+    elements.messageInput.addEventListener('input', autoResizeTextarea);
     
-    // New chat button
+    // New chat
     elements.newChatBtn.addEventListener('click', startNewChat);
+    
+    // Sidebar toggle (mobile)
+    elements.menuToggle.addEventListener('click', toggleSidebar);
+    elements.sidebarOverlay.addEventListener('click', toggleSidebar);
+    
+    // Theme toggle
+    elements.themeToggle.addEventListener('click', toggleTheme);
 }
 
-// Session Management
+// ===== SESSION MANAGEMENT =====
 async function createSession() {
     try {
-        const response = await fetch(`${API_BASE}/session/create`, {
-            method: 'POST'
-        });
+        const response = await fetch(`${API_BASE}/session/create`, { method: 'POST' });
         const data = await response.json();
         AppState.sessionId = data.session_id;
         console.log('Session created:', AppState.sessionId);
     } catch (error) {
-        console.error('Failed to create session:', error);
-        // Continue without session - will be created on first message
+        console.error('Session creation failed:', error);
     }
 }
 
 async function startNewChat() {
+    // Save current chat to history if has messages
+    if (AppState.messages.length > 0) {
+        saveChatToHistory();
+    }
+    
     // Reset state
     AppState.messages = [];
     AppState.sessionId = null;
     
-    // Clear UI
+    // Reset UI
     elements.chatMessages.innerHTML = '';
     elements.chatMessages.classList.add('hidden');
     elements.welcomeScreen.classList.remove('hidden');
     elements.messageInput.value = '';
+    autoResizeTextarea();
     
     // Create new session
     await createSession();
+    
+    // Close sidebar on mobile
+    elements.sidebar.classList.remove('open');
 }
 
-// Message Handling
+function saveChatToHistory() {
+    if (AppState.messages.length === 0) return;
+    
+    const firstUserMessage = AppState.messages.find(m => m.role === 'user');
+    const title = firstUserMessage ? 
+        firstUserMessage.content.substring(0, 35) + (firstUserMessage.content.length > 35 ? '...' : '') : 
+        'New conversation';
+    
+    // Don't add duplicate
+    if (AppState.chatHistory.length > 0 && AppState.chatHistory[0].id === AppState.sessionId) {
+        return;
+    }
+    
+    AppState.chatHistory.unshift({
+        id: AppState.sessionId,
+        title: title,
+        messages: [...AppState.messages],
+        timestamp: new Date().toISOString()
+    });
+    
+    // Keep only last 20 chats
+    AppState.chatHistory = AppState.chatHistory.slice(0, 20);
+    
+    // Persist to localStorage
+    localStorage.setItem('samaira-chat-history', JSON.stringify(AppState.chatHistory));
+    
+    updateChatHistoryUI();
+}
+
+function loadChatHistory() {
+    updateChatHistoryUI();
+}
+
+function updateChatHistoryUI() {
+    if (!elements.chatHistory) return;
+    
+    if (AppState.chatHistory.length === 0) {
+        elements.chatHistory.innerHTML = `
+            <div class="empty-history">
+                <p>Koi purani chats nahi hain</p>
+            </div>
+        `;
+        return;
+    }
+    
+    elements.chatHistory.innerHTML = AppState.chatHistory.map(chat => {
+        const date = new Date(chat.timestamp);
+        const timeStr = formatTimeAgo(date);
+        
+        return `
+            <div class="chat-history-item" data-id="${chat.id}" onclick="loadChat('${chat.id}')">
+                <div class="chat-history-title">💬 ${escapeHtml(chat.title)}</div>
+                <div class="chat-history-time">${timeStr}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function formatTimeAgo(date) {
+    const now = new Date();
+    const diff = now - date;
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (mins < 1) return 'Abhi';
+    if (mins < 60) return `${mins} min pehle`;
+    if (hours < 24) return `${hours} ghante pehle`;
+    if (days < 7) return `${days} din pehle`;
+    return date.toLocaleDateString('hi-IN');
+}
+
+async function loadChat(chatId) {
+    const chat = AppState.chatHistory.find(c => c.id === chatId);
+    if (!chat) return;
+    
+    // Load messages
+    AppState.sessionId = chat.id;
+    AppState.messages = [...chat.messages];
+    
+    // Show chat area
+    elements.welcomeScreen.classList.add('hidden');
+    elements.chatMessages.classList.remove('hidden');
+    
+    // Render messages
+    elements.chatMessages.innerHTML = '';
+    for (const msg of AppState.messages) {
+        const role = msg.role === 'assistant' ? 'ai' : 'user';
+        addMessageToUI(role, msg.content);
+    }
+    
+    // Close sidebar on mobile
+    elements.sidebar.classList.remove('open');
+}
+
+function addMessageToUI(role, content, suggestions = null) {
+    const messageElement = createMessageElement(role, content, suggestions);
+    elements.chatMessages.appendChild(messageElement);
+    scrollToBottom();
+}
+
+// ===== MESSAGE HANDLING =====
 async function handleSend() {
     const message = elements.messageInput.value.trim();
-    
     if (!message || AppState.isProcessing) return;
     
     // Clear input
     elements.messageInput.value = '';
+    autoResizeTextarea();
     
     // Send message
     await sendMessage(message);
 }
 
-async function sendMessage(message) {
-    // Show chat area, hide welcome
-    elements.welcomeScreen.classList.add('hidden');
-    elements.chatMessages.classList.remove('hidden');
-    
-    // Add user message to UI
-    addMessageToUI('user', message);
-    
-    // Show typing indicator
-    showTyping(true);
-    AppState.isProcessing = true;
-    
-    try {
-        const response = await fetch(`${API_BASE}/chat`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: message,
-                session_id: AppState.sessionId
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Update session ID if returned
-        if (data.session_id) {
-            AppState.sessionId = data.session_id;
-        }
-        
-        // Hide typing indicator
-        showTyping(false);
-        
-        // Add AI response to UI
-        addMessageToUI('ai', data.response, {
-            intent: data.intent,
-            handoffRequested: data.handoff_requested,
-            calculationData: data.calculation_data,
-            ttsText: data.tts_text
-        });
-        
-        // Speak response if TTS enabled
-        if (AppState.ttsEnabled && data.tts_text) {
-            speakText(data.tts_text);
-        }
-        
-    } catch (error) {
-        console.error('Error sending message:', error);
-        showTyping(false);
-        addMessageToUI('ai', 'Maaf kijiye, kuch technical issue aa gaya. Kya aap phir se try kar sakte hain?');
-    } finally {
-        AppState.isProcessing = false;
-    }
-}
-
-// Example message handler - called from HTML buttons
 function sendExample(text) {
     elements.messageInput.value = text;
     handleSend();
 }
 
-// UI Functions
-function addMessageToUI(type, content, metadata = {}) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}`;
+async function sendMessage(message) {
+    // Show chat area
+    elements.welcomeScreen.classList.add('hidden');
+    elements.chatMessages.classList.remove('hidden');
     
-    const avatar = type === 'user' ? '👤' : '🪷';
+    // Add user message
+    addMessage('user', message);
     
-    // Format content (handle markdown-like formatting)
-    const formattedContent = formatMessageContent(content);
+    // Show typing indicator
+    const typingId = showTypingIndicator();
+    AppState.isProcessing = true;
     
-    messageDiv.innerHTML = `
-        <div class="message-avatar">${avatar}</div>
-        <div class="message-content">
-            ${formattedContent}
-            ${type === 'ai' && metadata.ttsText ? `
-                <button class="speaker-btn" onclick="speakText('${escapeForJS(metadata.ttsText)}')" title="Listen">
-                    🔊
-                </button>
-            ` : ''}
+    try {
+        if (ENABLE_STREAMING) {
+            await sendMessageStreaming(message, typingId);
+        } else {
+            await sendMessageNormal(message, typingId);
+        }
+    } catch (error) {
+        console.error('Send error:', error);
+        removeTypingIndicator(typingId);
+        addMessage('ai', 'Maaf kijiye, kuch technical issue aa gaya. Please try again.');
+    } finally {
+        AppState.isProcessing = false;
+    }
+}
+
+async function sendMessageStreaming(message, typingId) {
+    const response = await fetch(`${API_BASE}/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            message: message,
+            session_id: AppState.sessionId
+        })
+    });
+    
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    
+    let fullText = '';
+    let messageElement = null;
+    let metadata = {};
+    
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            
+            try {
+                const data = JSON.parse(line.slice(6));
+                
+                if (data.type === 'session') {
+                    AppState.sessionId = data.session_id;
+                } else if (data.type === 'content') {
+                    // Remove typing indicator on first content
+                    if (!messageElement) {
+                        removeTypingIndicator(typingId);
+                        messageElement = createMessageElement('ai', '');
+                        elements.chatMessages.appendChild(messageElement);
+                    }
+                    
+                    fullText += data.text;
+                    updateMessageContent(messageElement, fullText);
+                    scrollToBottom();
+                } else if (data.type === 'done') {
+                    metadata = data;
+                } else if (data.type === 'error') {
+                    throw new Error(data.message);
+                }
+            } catch (e) {
+                // Ignore parse errors for incomplete chunks
+            }
+        }
+    }
+    
+    // Final update with full content and suggestions
+    if (messageElement) {
+        updateMessageContent(messageElement, fullText, metadata.suggested_questions);
+        
+        // Save to state
+        AppState.messages.push({
+            role: 'assistant',
+            content: fullText,
+            ttsText: metadata.tts_text
+        });
+        
+        // TTS
+        if (AppState.ttsEnabled && metadata.tts_text) {
+            speakText(metadata.tts_text);
+        }
+    }
+}
+
+async function sendMessageNormal(message, typingId) {
+    const response = await fetch(`${API_BASE}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            message: message,
+            session_id: AppState.sessionId
+        })
+    });
+    
+    const data = await response.json();
+    
+    removeTypingIndicator(typingId);
+    
+    if (data.session_id) {
+        AppState.sessionId = data.session_id;
+    }
+    
+    addMessage('ai', data.response, data.suggested_questions);
+    
+    if (AppState.ttsEnabled && data.tts_text) {
+        speakText(data.tts_text);
+    }
+}
+
+// ===== UI FUNCTIONS =====
+function addMessage(role, content, suggestions = null) {
+    addMessageToUI(role, content, suggestions);
+    
+    // Save to state
+    AppState.messages.push({ role: role === 'ai' ? 'assistant' : 'user', content });
+    
+    // Auto-save to history after user's first message gets a response
+    if (role === 'ai' && AppState.messages.length === 2) {
+        saveChatToHistory();
+    }
+}
+
+function createMessageElement(role, content, suggestions = null) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `message-wrapper ${role}`;
+    
+    const avatar = role === 'user' ? '👤' : '🪷';
+    
+    wrapper.innerHTML = `
+        <div class="message ${role}">
+            <div class="message-avatar">${avatar}</div>
+            <div class="message-content">
+                <div class="message-text"></div>
+                ${role === 'ai' ? `
+                    <div class="message-actions">
+                        <button class="message-action-btn" onclick="copyMessage(this)" title="Copy">📋</button>
+                        <button class="message-action-btn" onclick="speakMessage(this)" title="Read aloud">🔊</button>
+                    </div>
+                    <div class="suggested-questions"></div>
+                ` : ''}
+            </div>
         </div>
     `;
     
-    // Add calculation card if present
-    if (metadata.calculationData && type === 'ai') {
-        const calcCard = createCalculationCard(metadata.calculationData);
-        messageDiv.querySelector('.message-content').appendChild(calcCard);
+    // Render content
+    const textEl = wrapper.querySelector('.message-text');
+    if (role === 'ai') {
+        textEl.innerHTML = renderMarkdown(content);
+    } else {
+        textEl.textContent = content;
     }
     
-    // Add handoff banner if requested
-    if (metadata.handoffRequested && type === 'ai') {
-        const handoffBanner = createHandoffBanner();
-        messageDiv.querySelector('.message-content').appendChild(handoffBanner);
+    // Add suggestions
+    if (suggestions && suggestions.length > 0) {
+        const suggestionsEl = wrapper.querySelector('.suggested-questions');
+        if (suggestionsEl) {
+            suggestionsEl.innerHTML = suggestions.map(q => 
+                `<button class="suggested-question" onclick="sendExample('${escapeHtml(q)}')">${q}</button>`
+            ).join('');
+        }
     }
     
-    elements.chatMessages.appendChild(messageDiv);
+    return wrapper;
+}
+
+function updateMessageContent(element, content, suggestions = null) {
+    const textEl = element.querySelector('.message-text');
+    if (textEl) {
+        textEl.innerHTML = renderMarkdown(content);
+    }
     
-    // Scroll to bottom
+    if (suggestions && suggestions.length > 0) {
+        const suggestionsEl = element.querySelector('.suggested-questions');
+        if (suggestionsEl) {
+            suggestionsEl.innerHTML = suggestions.map(q => 
+                `<button class="suggested-question" onclick="sendExample('${escapeHtml(q)}')">${q}</button>`
+            ).join('');
+        }
+    }
+}
+
+function renderMarkdown(text) {
+    if (typeof marked === 'undefined') {
+        // Fallback if marked.js not loaded
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/\n/g, '<br>');
+    }
+    
+    // Configure marked for safe rendering
+    marked.setOptions({
+        breaks: true,
+        gfm: true,
+        sanitize: false
+    });
+    
+    return marked.parse(text);
+}
+
+function showTypingIndicator() {
+    const id = 'typing-' + Date.now();
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message-wrapper ai';
+    wrapper.id = id;
+    
+    wrapper.innerHTML = `
+        <div class="message ai">
+            <div class="message-avatar">🪷</div>
+            <div class="message-content">
+                <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    elements.chatMessages.appendChild(wrapper);
     scrollToBottom();
     
-    // Store message
-    AppState.messages.push({ type, content, metadata });
+    return id;
 }
 
-function formatMessageContent(content) {
-    // Convert markdown-like formatting to HTML
-    let formatted = content
-        // Bold
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        // Bullet points
-        .replace(/^• (.+)$/gm, '<li>$1</li>')
-        .replace(/^- (.+)$/gm, '<li>$1</li>')
-        // Line breaks
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br>');
-    
-    // Wrap in paragraph if not already
-    if (!formatted.startsWith('<')) {
-        formatted = `<p>${formatted}</p>`;
-    }
-    
-    // Wrap list items in ul
-    if (formatted.includes('<li>')) {
-        formatted = formatted.replace(/(<li>.*?<\/li>)+/g, '<ul>$&</ul>');
-    }
-    
-    return formatted;
-}
-
-function createCalculationCard(data) {
-    const card = document.createElement('div');
-    card.className = 'calc-card';
-    
-    let bodyContent = '';
-    
-    if (data.summary_hinglish) {
-        bodyContent = `<p>${formatMessageContent(data.summary_hinglish)}</p>`;
-    } else if (data.sip && data.rd) {
-        // Comparison data
-        bodyContent = `
-            <table>
-                <tr>
-                    <td>SIP (${data.sip.rate_of_return}%):</td>
-                    <td>₹${formatIndianNumber(data.sip.maturity_value)}</td>
-                </tr>
-                <tr>
-                    <td>RD (${data.rd.rate_of_return}%):</td>
-                    <td>₹${formatIndianNumber(data.rd.maturity_value)}</td>
-                </tr>
-                <tr>
-                    <td>Difference:</td>
-                    <td>₹${formatIndianNumber(data.difference.amount)}</td>
-                </tr>
-            </table>
-        `;
-    } else {
-        // Single calculation
-        bodyContent = `
-            <table>
-                <tr>
-                    <td>Total Invested:</td>
-                    <td>₹${formatIndianNumber(data.total_invested)}</td>
-                </tr>
-                <tr>
-                    <td>Maturity Value:</td>
-                    <td>₹${formatIndianNumber(data.maturity_value)}</td>
-                </tr>
-                <tr>
-                    <td>Returns:</td>
-                    <td>₹${formatIndianNumber(data.total_returns)} (${data.returns_percentage?.toFixed(1)}%)</td>
-                </tr>
-            </table>
-        `;
-    }
-    
-    card.innerHTML = `
-        <div class="calc-header">
-            <span class="calc-icon">📊</span>
-            <span class="calc-title">Projection (Illustrative)</span>
-        </div>
-        <div class="calc-body">
-            ${bodyContent}
-        </div>
-    `;
-    
-    return card;
-}
-
-function createHandoffBanner() {
-    const banner = document.createElement('div');
-    banner.className = 'handoff-banner';
-    banner.innerHTML = `
-        <p>🤝 Is query ke liye ek certified advisor better guide kar sakte hain.</p>
-        <button onclick="requestHandoff()">Connect with Advisor</button>
-    `;
-    return banner;
-}
-
-function requestHandoff() {
-    alert('Demo: In production, this would connect you to a human financial advisor.');
-}
-
-function showTyping(show) {
-    if (show) {
-        elements.typingIndicator.classList.remove('hidden');
-        scrollToBottom();
-    } else {
-        elements.typingIndicator.classList.add('hidden');
-    }
+function removeTypingIndicator(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
 }
 
 function scrollToBottom() {
-    elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+    elements.chatArea.scrollTop = elements.chatArea.scrollHeight;
 }
 
-// Utility Functions
-function formatIndianNumber(num) {
-    if (num === undefined || num === null) return '0';
+function autoResizeTextarea() {
+    const textarea = elements.messageInput;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+}
+
+// ===== THEME =====
+function toggleTheme() {
+    const newTheme = AppState.currentTheme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+}
+
+function setTheme(theme) {
+    AppState.currentTheme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('samaira-theme', theme);
     
-    const number = parseFloat(num);
+    const icon = document.getElementById('theme-icon');
+    const text = document.getElementById('theme-text');
     
-    if (number >= 10000000) {
-        return (number / 10000000).toFixed(2) + ' Cr';
-    } else if (number >= 100000) {
-        return (number / 100000).toFixed(2) + ' L';
+    if (theme === 'dark') {
+        icon.textContent = '☀️';
+        text.textContent = 'Light mode';
     } else {
-        return number.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        icon.textContent = '🌙';
+        text.textContent = 'Dark mode';
     }
 }
 
-function escapeForJS(str) {
-    return str.replace(/'/g, "\\'").replace(/\n/g, ' ');
+// ===== SIDEBAR =====
+function toggleSidebar() {
+    elements.sidebar.classList.toggle('open');
 }
 
-// TTS Function (uses Web Speech API)
+// ===== MESSAGE ACTIONS =====
+function copyMessage(btn) {
+    const content = btn.closest('.message-content').querySelector('.message-text').textContent;
+    navigator.clipboard.writeText(content).then(() => {
+        btn.textContent = '✓';
+        setTimeout(() => btn.textContent = '📋', 1500);
+    });
+}
+
+function speakMessage(btn) {
+    const content = btn.closest('.message-content').querySelector('.message-text').textContent;
+    speakText(content);
+}
+
+// ===== TTS =====
 let ttsVoices = [];
 let selectedVoice = null;
+let audioContext = null;
 
-// Phonetic corrections for better Hinglish pronunciation
 const phoneticCorrections = {
-    // Common mispronunciations
     'try': 'traay',
     'kijiye': 'kee-jee-yay',
     'chahiye': 'chaa-hee-yay',
-    'samjhiye': 'sam-jhee-yay',
-    'bataiye': 'ba-taa-ee-yay',
     'karein': 'ka-rain',
     'sakti': 'sak-tee',
     'sakta': 'sak-taa',
-    'hoon': 'hoon',
     'hai': 'hay',
     'hain': 'hain',
     'mein': 'main',
-    'aapka': 'aap-kaa',
-    'aapki': 'aap-kee',
-    'zaroor': 'za-roor',
-    'zaroori': 'za-roo-ree',
-    'pehle': 'peh-lay',
-    'baad': 'baad',
-    'lagbhag': 'lag-bhag',
-    // Financial terms
     'SIP': 'sip',
     'RD': 'aar dee',
     'PPF': 'pee pee eff',
     'NPS': 'en pee ess',
     'EMI': 'ee em aai',
     'FD': 'eff dee',
-    'SSY': 'ess ess waai',
-    // Numbers and currency
     '₹': 'rupees',
-    'L': 'laakh',
-    'Cr': 'crore',
     'lakh': 'laakh',
     'crore': 'crore'
 };
 
-function speakText(text) {
-    if (!('speechSynthesis' in window)) {
-        console.warn('Text-to-speech not supported');
-        return;
+async function checkTTSProvider() {
+    try {
+        const response = await fetch(`${API_BASE}/tts/status`);
+        const data = await response.json();
+        AppState.usePremiumTTS = data.elevenlabs_available;
+        console.log('TTS Provider:', AppState.usePremiumTTS ? 'ElevenLabs' : 'Browser');
+    } catch (e) {
+        AppState.usePremiumTTS = false;
+    }
+}
+
+async function speakText(text) {
+    // Try premium TTS first
+    if (AppState.usePremiumTTS) {
+        try {
+            const response = await fetch(`${API_BASE}/tts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+            const data = await response.json();
+            
+            if (data.success && data.audio) {
+                playAudioBase64(data.audio);
+                return;
+            }
+        } catch (e) {
+            console.log('Premium TTS failed, using browser:', e);
+        }
     }
     
-    // Cancel any ongoing speech
+    // Fallback to browser TTS
+    speakWithBrowser(text);
+}
+
+function playAudioBase64(base64Audio) {
+    const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+    audio.play().catch(e => {
+        console.log('Audio playback failed:', e);
+        // User interaction required - show a play button
+    });
+}
+
+function speakWithBrowser(text) {
+    if (!('speechSynthesis' in window)) return;
+    
     speechSynthesis.cancel();
     
-    // Apply phonetic corrections
     let cleanText = text;
-    
-    // Apply all phonetic corrections (case-insensitive for words)
     for (const [word, replacement] of Object.entries(phoneticCorrections)) {
         const regex = new RegExp(`\\b${word}\\b`, 'gi');
         cleanText = cleanText.replace(regex, replacement);
     }
     
-    // Additional cleanup
     cleanText = cleanText
-        .replace(/\*\*/g, '')  // Remove markdown bold
-        .replace(/\n/g, '. ')  // Convert newlines to pauses
-        .replace(/\s+/g, ' ')  // Normalize spaces
+        .replace(/\*\*/g, '')
+        .replace(/\n/g, '. ')
+        .replace(/\s+/g, ' ')
         .trim();
     
     const utterance = new SpeechSynthesisUtterance(cleanText);
     
-    // Get best voice for Hinglish
     const voice = getBestVoice();
     if (voice) {
         utterance.voice = voice;
         utterance.lang = voice.lang;
     }
     
-    // Adjust speech parameters for clarity
-    utterance.rate = 0.9;   // Slightly slower
+    utterance.rate = 0.9;
     utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    
-    // Add event handlers for debugging
-    utterance.onerror = (e) => console.error('TTS Error:', e);
-    utterance.onend = () => console.log('TTS completed');
     
     speechSynthesis.speak(utterance);
 }
@@ -436,55 +640,44 @@ function getBestVoice() {
     
     const voices = ttsVoices.length > 0 ? ttsVoices : speechSynthesis.getVoices();
     
-    // Priority order for Hinglish content:
-    // 1. Hindi voice (hi-IN)
-    // 2. Indian English (en-IN)
-    // 3. Microsoft voices (better quality on Windows)
-    // 4. Any English voice
-    
-    const hindiVoice = voices.find(v => v.lang === 'hi-IN');
-    const indianEnglish = voices.find(v => v.lang === 'en-IN');
-    const microsoftIndian = voices.find(v => v.name.includes('Microsoft') && v.lang.includes('IN'));
-    const googleIndian = voices.find(v => v.name.includes('Google') && v.lang.includes('IN'));
-    const anyEnglish = voices.find(v => v.lang.startsWith('en'));
-    
-    selectedVoice = hindiVoice || microsoftIndian || googleIndian || indianEnglish || anyEnglish || voices[0];
+    // Priority: Hindi > Indian English Microsoft > Indian English > English
+    selectedVoice = voices.find(v => v.lang === 'hi-IN' && v.name.includes('Female')) ||
+                    voices.find(v => v.lang === 'hi-IN') ||
+                    voices.find(v => v.name.includes('Neerja') || v.name.includes('Heera')) ||
+                    voices.find(v => v.name.includes('Microsoft') && v.lang.includes('IN')) ||
+                    voices.find(v => v.lang === 'en-IN' && v.name.toLowerCase().includes('female')) ||
+                    voices.find(v => v.lang === 'en-IN') ||
+                    voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female')) ||
+                    voices.find(v => v.lang.startsWith('en')) ||
+                    voices[0];
     
     if (selectedVoice) {
-        console.log('Selected TTS voice:', selectedVoice.name, selectedVoice.lang);
+        console.log('Selected voice:', selectedVoice.name, selectedVoice.lang);
     }
     
     return selectedVoice;
 }
 
-// Stop speaking
-function stopSpeaking() {
-    if ('speechSynthesis' in window) {
-        speechSynthesis.cancel();
-    }
-}
-
-// Load voices when available
 if ('speechSynthesis' in window) {
-    // Load voices immediately if available
     ttsVoices = speechSynthesis.getVoices();
-    
     speechSynthesis.onvoiceschanged = () => {
         ttsVoices = speechSynthesis.getVoices();
-        selectedVoice = null; // Reset to re-select
-        console.log('TTS voices loaded:', ttsVoices.length);
-        
-        // Log available Indian voices for debugging
-        const indianVoices = ttsVoices.filter(v => 
-            v.lang.includes('IN') || v.lang.includes('hi')
-        );
-        if (indianVoices.length > 0) {
-            console.log('Available Indian voices:', 
-                indianVoices.map(v => `${v.name} (${v.lang})`).join(', ')
-            );
-        }
-        
-        // Pre-select the best voice
+        selectedVoice = null;
         getBestVoice();
     };
 }
+
+// ===== UTILITIES =====
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML.replace(/'/g, "\\'");
+}
+
+// ===== EXPORTS FOR GLOBAL ACCESS =====
+window.sendExample = sendExample;
+window.copyMessage = copyMessage;
+window.speakMessage = speakMessage;
+window.speakText = speakText;
+window.loadChat = loadChat;
+window.AppState = AppState;
