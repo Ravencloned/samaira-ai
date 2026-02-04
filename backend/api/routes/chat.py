@@ -227,6 +227,9 @@ async def chat_stream(request: ChatRequest):
             session.add_message("user", request.message)
             session.add_message("assistant", full_response)
             
+            # PERSIST session to disk
+            session_store.update_session(session)
+            
             # Log updated state
             print(f"[CHAT] Response done. User: {session.user_name or 'Unknown'} | History now: {len(session.conversation_history)} msgs")
             

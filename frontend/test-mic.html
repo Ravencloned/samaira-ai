@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microphone Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .status {
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            background: #2a2a2a;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            margin: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .error {
+            background: #ff4444;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .info {
+            background: #2196F3;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        #log {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Microphone Permission Test</h1>
+    <p>This page will help diagnose microphone access issues.</p>
+    
+    <div class="status">
+        <h3>System Information:</h3>
+        <div id="sysinfo"></div>
+    </div>
+    
+    <button onclick="testMicrophone()">Test Microphone Access</button>
+    <button onclick="clearLog()">Clear Log</button>
+    
+    <div id="result"></div>
+    <div id="log"></div>
+    
+    <script>
+        // Display system info
+        const sysinfo = document.getElementById('sysinfo');
+        sysinfo.innerHTML = `
+            <strong>Browser:</strong> ${navigator.userAgent}<br>
+            <strong>Protocol:</strong> ${window.location.protocol}<br>
+            <strong>Host:</strong> ${window.location.host}<br>
+            <strong>MediaDevices Support:</strong> ${navigator.mediaDevices ? '✅ Yes' : '❌ No'}<br>
+            <strong>getUserMedia Support:</strong> ${navigator.mediaDevices?.getUserMedia ? '✅ Yes' : '❌ No'}
+        `;
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff4444' : type === 'success' ? '#4CAF50' : '#0f0';
+            logDiv.innerHTML += `<div style="color: ${color}">[${time}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('result').innerHTML = '';
+        }
+        
+        async function testMicrophone() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="info">⏳ Testing microphone access...</div>';
+            
+            log('=== Starting Microphone Test ===');
+            
+            // Check basic support
+            if (!navigator.mediaDevices) {
+                const msg = '❌ navigator.mediaDevices is not available';
+                log(msg, 'error');
+                resultDiv.innerHTML = `<div class="error">${msg}<br><br>Your browser may not support getUserMedia.</div>`;
+                return;
+            }
+            
+            if (!navigator.mediaDevices.getUserMedia) {
+                const msg = '❌ getUserMedia is not available';
+                log(msg, 'error');
+                resultDiv.innerHTML = `<div class="error">${msg}<br><br>Your browser does not support microphone access.</div>`;
+                return;
+            }
+            
+            log('✅ Basic getUserMedia support detected');
+            
+            // Try to get microphone access
+            try {
+                log('Requesting microphone permission with {audio: true}...');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                log('✅ SUCCESS! Microphone permission granted!', 'success');
+                log(`Stream ID: ${stream.id}`);
+                log(`Active: ${stream.active}`);
+                log(`Audio tracks: ${stream.getAudioTracks().length}`);
+                
+                // Get track details
+                const tracks = stream.getAudioTracks();
+                tracks.forEach((track, index) => {
+                    log(`Track ${index + 1}:`);
+                    log(`  - Label: ${track.label}`);
+                    log(`  - ID: ${track.id}`);
+                    log(`  - Enabled: ${track.enabled}`);
+                    log(`  - Ready State: ${track.readyState}`);
+                    log(`  - Muted: ${track.muted}`);
+                    
+                    const settings = track.getSettings();
+                    log(`  - Sample Rate: ${settings.sampleRate} Hz`);
+                    log(`  - Channel Count: ${settings.channelCount}`);
+                });
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>✅ SUCCESS!</h3>
+                        <p>Microphone access granted successfully!</p>
+                        <p><strong>Device:</strong> ${tracks[0].label}</p>
+                        <p><strong>Sample Rate:</strong> ${tracks[0].getSettings().sampleRate} Hz</p>
+                        <p><strong>Channels:</strong> ${tracks[0].getSettings().channelCount}</p>
+                        <p>You can now use the microphone in SamairaAI!</p>
+                    </div>
+                `;
+                
+                // Stop the stream
+                stream.getTracks().forEach(track => track.stop());
+                log('Stream stopped');
+                
+            } catch (error) {
+                log(`❌ ERROR: ${error.name}`, 'error');
+                log(`Message: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+                
+                let errorMsg = '';
+                let solution = '';
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMsg = '🔒 Microphone permission was DENIED';
+                    solution = `
+                        <h4>How to fix:</h4>
+                        <ol>
+                            <li>Look for a 🔒 or 🎤 icon in your browser address bar (usually on the left)</li>
+                            <li>Click it and select "Allow" for microphone</li>
+                            <li>Or go to browser Settings → Privacy → Microphone and allow this site</li>
+                            <li>Refresh this page (F5) and try again</li>
+                        </ol>
+                    `;
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg = '🎤 No microphone device found';
+                    solution = `
+                        <h4>How to fix:</h4>
+                        <ol>
+                            <li>Check if your microphone is physically connected</li>
+                            <li>Open Windows Sound settings and check if microphone is detected</li>
+                            <li>Try a different microphone or USB port</li>
+                            <li>Restart your browser and try again</li>
+                        </ol>
+                    `;
+                } else if (error.name === 'NotReadableError') {
+                    errorMsg = '⚠️ Microphone is already in use';
+                    solution = `
+                        <h4>How to fix:</h4>
+                        <ol>
+                            <li>Close Zoom, Teams, Discord, Skype, or any video call apps</li>
+                            <li>Close other browser tabs that might be using the microphone</li>
+                            <li>Close any audio recording software</li>
+                            <li>Restart your browser and try again</li>
+                        </ol>
+                    `;
+                } else {
+                    errorMsg = `❌ Unknown error: ${error.name}`;
+                    solution = `
+                        <h4>Troubleshooting:</h4>
+                        <ol>
+                            <li>Check browser console (F12) for detailed error messages</li>
+                            <li>Try a different browser (Chrome, Firefox, Edge)</li>
+                            <li>Check Windows microphone permissions</li>
+                            <li>Restart your computer</li>
+                        </ol>
+                    `;
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>${errorMsg}</h3>
+                        <p><strong>Error Type:</strong> ${error.name}</p>
+                        <p><strong>Error Message:</strong> ${error.message}</p>
+                        ${solution}
+                    </div>
+                `;
+            }
+            
+            log('=== Microphone Test Complete ===');
+        }
+    </script>
+</body>
+</html>

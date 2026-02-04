@@ -32,7 +32,19 @@ class Settings:
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
     
     # Whisper
-    WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "small")
+    WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "medium")  # medium is better for Hinglish
+    USE_FASTER_WHISPER: bool = os.getenv("USE_FASTER_WHISPER", "true").lower() == "true"
+    FASTER_WHISPER_MODEL: str = os.getenv("FASTER_WHISPER_MODEL", "medium")  # medium, medium.en, large-v2
+    FASTER_WHISPER_DEVICE: str = os.getenv("FASTER_WHISPER_DEVICE", "cpu")  # cpu or cuda
+    FASTER_WHISPER_COMPUTE_TYPE: str = os.getenv("FASTER_WHISPER_COMPUTE_TYPE", "int8")  # int8, float16, float32
+    
+    # Voice Activity Detection
+    VAD_ENABLED: bool = os.getenv("VAD_ENABLED", "true").lower() == "true"
+    VAD_AGGRESSIVENESS: int = int(os.getenv("VAD_AGGRESSIVENESS", "2"))  # 0-3, higher = more aggressive
+    
+    # Real-time Voice Settings
+    REALTIME_VOICE_ENABLED: bool = os.getenv("REALTIME_VOICE_ENABLED", "true").lower() == "true"
+    VOICE_CHUNK_DURATION_MS: int = int(os.getenv("VOICE_CHUNK_DURATION_MS", "30"))  # 10, 20, 30 ms chunks
     
     # TTS Provider: "azure" (best Hinglish), "elevenlabs" (natural) or "browser" (fallback)
     TTS_PROVIDER: str = os.getenv("TTS_PROVIDER", "azure")

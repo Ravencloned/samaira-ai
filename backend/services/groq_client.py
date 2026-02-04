@@ -251,21 +251,21 @@ class GroqClient:
         if hasattr(session, 'user_age') and session.user_age:
             parts.append(f"Age: {session.user_age}")
         if hasattr(session, 'user_income') and session.user_income:
-            parts.append(f"Monthly Income: {session.user_income} lakh")
+            parts.append(f"Monthly Income: ₹{session.user_income} lakh")
         if hasattr(session, 'user_savings') and session.user_savings:
-            parts.append(f"Monthly Savings: Rs {session.user_savings}")
+            parts.append(f"Monthly Savings: ₹{session.user_savings}")
         if hasattr(session, 'user_location') and session.user_location:
             parts.append(f"Location: {session.user_location}")
         if session.current_goal:
             parts.append(f"Goal: {session.current_goal.goal_type.value}")
             if session.current_goal.target_amount:
-                parts.append(f"Target: Rs {session.current_goal.target_amount:,.0f}")
+                parts.append(f"Target: ₹{session.current_goal.target_amount:,.0f}")
             if session.current_goal.timeline_years:
                 parts.append(f"Timeline: {session.current_goal.timeline_years} years")
         
         if parts:
-            return "[USER PROFILE]\n" + "\n".join(parts) + "\n[END PROFILE]"
-        return ""
+            return "[KNOWN USER INFO - Only use these facts, do not invent others]\\n" + "\\n".join(parts) + "\\n[END - Ask user for any other info you need]"
+        return "[NO USER INFO YET - Ask user for name, location, income if needed for advice]"
     
     def _build_messages(self, user_message: str, session, context: Optional[str] = None) -> list:
         """Build the messages array for the API call."""
@@ -277,12 +277,32 @@ class GroqClient:
         user_profile = self._build_user_profile(session)
         system_content = self._system_prompt
         if user_profile:
-            system_content = f"{user_profile}\n\n{self._system_prompt}"
+            system_content = f"[USER PROFILE]\n{user_profile}\n\n{self._system_prompt}"
         
-        messages = [{"role": "system", "content": system_content}]
+        # Get conversation history
+        history = session.get_conversation_history(n=15)
+        
+        # Build base system message
+        messages = []
+        
+        # If there's conversation history, add STRONG anti-reintroduction instruction
+        if len(history) > 0:
+            user_name = session.user_name or "the user"
+            turn_number = len(history)//2 + 1
+            system_content = (
+                f"### MANDATORY RULES FOR THIS RESPONSE ###\n"
+                f"Turn: {turn_number} | User: {user_name}\n"
+                f"1. DO NOT GREET. DO NOT SAY NAMASTE. DO NOT INTRODUCE YOURSELF.\n"
+                f"2. DO NOT say 'Main SamairaAI hoon' or 'I am Samaira'.\n"
+                f"3. Start your response with the actual answer/content.\n"
+                f"4. ONLY use facts the user has explicitly stated. DO NOT invent numbers.\n"
+                f"5. If you need info (goal amount, timeline), ASK the user.\n"
+                f"################################\n\n{system_content}"
+            )
+        
+        messages.append({"role": "system", "content": system_content})
         
         # Add conversation history (15 messages = ~7 turns)
-        history = session.get_conversation_history(n=15)
         for msg in history:
             role = "user" if msg["role"] == "user" else "assistant"
             messages.append({"role": role, "content": msg["content"]})
@@ -296,6 +316,37 @@ class GroqClient:
         
         return messages
     
+    def _strip_reintroduction(self, response: str, turn_number: int) -> str:
+        """Remove any re-introduction from responses after turn 1."""
+        if turn_number <= 1:
+            return response  # First turn can have intro
+        
+        # Patterns that indicate re-introduction
+        intro_patterns = [
+            r'^Namaste!?\s*',
+            r'^Hello!?\s*',
+            r'^Hi!?\s*',
+            r'Main SamairaAI hoon[,.]?\s*',
+            r'I am SamairaAI[,.]?\s*',
+            r'I\'m SamairaAI[,.]?\s*',
+            r'aapki? (personal )?financial advisor[,.]?\s*',
+            r'aapki? financial literacy companion[,.]?\s*',
+            r'Kaise ho\??\s*',
+        ]
+        
+        cleaned = response
+        for pattern in intro_patterns:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
+        
+        # Clean up any leading whitespace or punctuation
+        cleaned = re.sub(r'^[\s,.:!]+', '', cleaned)
+        
+        # Capitalize first letter if needed
+        if cleaned and cleaned[0].islower():
+            cleaned = cleaned[0].upper() + cleaned[1:]
+        
+        return cleaned if cleaned else response
+
     async def chat(self, user_message: str, session, context: Optional[str] = None) -> str:
         """Send a message and get a response."""
         if not self._initialized:
@@ -330,6 +381,7 @@ class GroqClient:
                 
                 if response.status_code == 200:
                     data = response.json()
+                    # Return raw response - postprocessing happens in conversation.py
                     return data["choices"][0]["message"]["content"]
                 else:
                     print(f"Groq API error {response.status_code}: {response.text}")

@@ -6,12 +6,20 @@ Converts voice input to text with Hinglish support.
 import whisper
 import tempfile
 import os
+import re
 from pathlib import Path
 from typing import Optional
 import numpy as np
 import subprocess
 
 from config.settings import settings
+
+# Hinglish vocabulary - English mode romanizes Hindi words cleanly
+# Keep this SHORT to avoid Whisper hallucinating from long prompts
+HINGLISH_CONTEXT = """Hinglish conversation: mera naam Yash hai, main Bangalore mein rehta hoon, meri salary 1.5 lakh hai, SIP mutual fund investment savings."""
+
+# Sentinel value for unclear audio
+UNCLEAR_AUDIO = "[Audio unclear - please try again]"
 
 
 class WhisperASR:
@@ -34,6 +42,64 @@ class WhisperASR:
         self._model = whisper.load_model(self._model_name)
         self._initialized = True
         print("Whisper model loaded successfully")
+    
+    def _clean_hinglish_text(self, text: str) -> str:
+        """
+        Clean up Hinglish transcription for better readability.
+        Fixes common Whisper mistakes and removes hallucinations.
+        """
+        if not text:
+            return text
+        
+        # CRITICAL: Detect and remove hallucinated repeated words/phrases
+        # Whisper often produces "word word word word..." when confused
+        words = text.split()
+        if len(words) > 3:
+            # Check for excessive repetition (same word appearing 3+ times consecutively)
+            cleaned_words = []
+            prev_word = None
+            repeat_count = 0
+            for word in words:
+                if word == prev_word:
+                    repeat_count += 1
+                    if repeat_count < 2:  # Allow max 2 consecutive repeats
+                        cleaned_words.append(word)
+                else:
+                    repeat_count = 0
+                    cleaned_words.append(word)
+                prev_word = word
+            text = ' '.join(cleaned_words)
+        
+        # Check if text is mostly repetitive (hallucination indicator)
+        unique_words = set(text.split())
+        total_words = len(text.split())
+        if total_words > 5 and len(unique_words) < total_words * 0.3:
+            # More than 70% repetition - likely hallucination
+            return UNCLEAR_AUDIO
+        
+        # Common Hinglish corrections (Whisper often mishears these)
+        corrections = {
+            # Numbers in Hindi
+            "पन्द्रह": "15", "पंद्रह": "15", "पांच": "5", "पाँच": "5",
+            "तीन": "3", "दस": "10", "बीस": "20", "सौ": "100",
+            "लाख": "lakh", "करोड़": "crore", "हज़ार": "thousand",
+            # Common financial terms
+            "एसआईपी": "SIP", "पीपीएफ": "PPF", "एनपीएस": "NPS",
+            "एफडी": "FD", "आरडी": "RD", "ईएमआई": "EMI",
+            "म्यूचुअल फंड": "mutual fund", "म्युचुअल फंड": "mutual fund",
+            # Common phrases that get garbled
+            "मैं चाहता": "main chahta", "मैं चाहती": "main chahti",
+            "कितना": "kitna", "कैसे": "kaise", "क्या": "kya",
+        }
+        
+        for hindi, replacement in corrections.items():
+            text = text.replace(hindi, replacement)
+        
+        # Remove repeated punctuation
+        text = re.sub(r'\.{2,}', '.', text)
+        text = re.sub(r'\s{2,}', ' ', text)
+        
+        return text.strip()
     
     def _convert_to_wav(self, input_path: str, output_path: str) -> bool:
         """Convert audio to WAV format using ffmpeg if available."""
@@ -81,25 +147,38 @@ class WhisperASR:
         
         try:
             # Transcribe with Hinglish-optimized settings
-            # Using initial_prompt to bias towards Hindi/English mix
+            # KEY INSIGHT: For code-switched Hindi-English (Hinglish):
+            # - Use language=None for auto-detect (handles switching better)
+            # - OR use "en" which captures Hindi words in Roman script
+            # - Avoid "hi" which forces Devanagari output
+            
             result = self._model.transcribe(
                 audio_path,
-                language=language,  # None = auto-detect (good for Hinglish)
+                language="en",  # FORCE ENGLISH - romanizes Hindi words, better for Hinglish
                 task="transcribe",
                 fp16=False,  # Use FP32 for better accuracy on CPU
                 verbose=False,
-                # Initial prompt to help with Hinglish context
-                initial_prompt="Namaste, main Hinglish mein baat kar raha hoon. Financial planning, SIP, PPF, mutual funds ke baare mein.",
+                initial_prompt=HINGLISH_CONTEXT,
+                # Settings to reduce hallucinations
+                temperature=0.0,  # Deterministic
+                compression_ratio_threshold=2.4,  # Default is 2.4
+                logprob_threshold=-1.0,  # Default is -1.0
+                no_speech_threshold=0.6,  # Default is 0.6
+                condition_on_previous_text=False,  # Prevents hallucination loops
             )
             
+            # Clean up the transcribed text
+            text = result["text"].strip()
+            text = self._clean_hinglish_text(text)
+            
             return {
-                "text": result["text"].strip(),
-                "language": result.get("language", "unknown"),
+                "text": text,
+                "language": result.get("language", "hi"),
                 "segments": [
                     {
                         "start": seg["start"],
                         "end": seg["end"],
-                        "text": seg["text"].strip()
+                        "text": self._clean_hinglish_text(seg["text"].strip())
                     }
                     for seg in result.get("segments", [])
                 ]
@@ -181,18 +260,24 @@ class WhisperASR:
         
         result = self._model.transcribe(
             audio_array,
+            language="hi",  # Force Hindi for better Hinglish recognition
             fp16=False,
-            verbose=False
+            verbose=False,
+            initial_prompt=HINGLISH_CONTEXT,
+            temperature=0.0,
+            condition_on_previous_text=True,
         )
         
+        text = self._clean_hinglish_text(result["text"].strip())
+        
         return {
-            "text": result["text"].strip(),
-            "language": result.get("language", "unknown"),
+            "text": text,
+            "language": result.get("language", "hi"),
             "segments": [
                 {
                     "start": seg["start"],
                     "end": seg["end"],
-                    "text": seg["text"].strip()
+                    "text": self._clean_hinglish_text(seg["text"].strip())
                 }
                 for seg in result.get("segments", [])
             ]

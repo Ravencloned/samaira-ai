@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Literal
 from enum import Enum
+from pathlib import Path
 import uuid
 
 
@@ -205,17 +206,63 @@ class SessionState:
 
 class SessionStore:
     """
-    In-memory session store for the prototype.
-    Production would use Redis or similar.
+    Persistent session store with file backup for development.
+    Survives server restarts by saving to disk.
     """
     
     def __init__(self):
         self._sessions: dict[str, SessionState] = {}
+        self._storage_path = Path(__file__).parent.parent / "data" / "sessions.json"
+        self._storage_path.parent.mkdir(parents=True, exist_ok=True)
+        self._load_sessions()
+    
+    def _load_sessions(self):
+        """Load sessions from disk on startup."""
+        if self._storage_path.exists():
+            try:
+                import json
+                with open(self._storage_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    for sid, session_data in data.items():
+                        session = SessionState(session_id=sid)
+                        session.user_name = session_data.get('user_name')
+                        session.current_phase = ConversationPhase(session_data.get('current_phase', 'greeting'))
+                        session.risk_preference = RiskPreference(session_data['risk_preference']) if session_data.get('risk_preference') else None
+                        # Restore conversation history
+                        for msg in session_data.get('conversation_history', []):
+                            session.conversation_history.append(
+                                Message(role=msg['role'], content=msg['content'])
+                            )
+                        self._sessions[sid] = session
+                print(f"[OK] Loaded {len(self._sessions)} sessions from disk")
+            except Exception as e:
+                print(f"[WARNING] Could not load sessions: {e}")
+    
+    def _save_sessions(self):
+        """Persist sessions to disk."""
+        try:
+            import json
+            data = {}
+            for sid, session in self._sessions.items():
+                data[sid] = {
+                    'user_name': session.user_name,
+                    'current_phase': session.current_phase.value,
+                    'risk_preference': session.risk_preference.value if session.risk_preference else None,
+                    'conversation_history': [
+                        {'role': msg.role, 'content': msg.content}
+                        for msg in session.conversation_history[-30:]  # Keep last 30 messages
+                    ]
+                }
+            with open(self._storage_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[WARNING] Could not save sessions: {e}")
     
     def create_session(self) -> SessionState:
         """Create a new session."""
         session = SessionState()
         self._sessions[session.session_id] = session
+        self._save_sessions()
         return session
     
     def get_session(self, session_id: str) -> Optional[SessionState]:
@@ -228,12 +275,26 @@ class SessionStore:
             session = self._sessions[session_id]
             session.last_active = datetime.now()
             return session
-        return self.create_session()
+        # Create new session but preserve the session_id if provided
+        session = SessionState()
+        if session_id:
+            # Client has a session_id but server doesn't know it (restart case)
+            # Create session with client's ID to maintain continuity
+            session = SessionState(session_id=session_id)
+        self._sessions[session.session_id] = session
+        self._save_sessions()
+        return session
+    
+    def update_session(self, session: SessionState):
+        """Mark session as updated and persist."""
+        session.last_active = datetime.now()
+        self._save_sessions()
     
     def delete_session(self, session_id: str) -> bool:
         """Delete a session."""
         if session_id in self._sessions:
             del self._sessions[session_id]
+            self._save_sessions()
             return True
         return False
     
@@ -246,6 +307,8 @@ class SessionStore:
         ]
         for sid in expired:
             del self._sessions[sid]
+        if expired:
+            self._save_sessions()
         return len(expired)
 
 

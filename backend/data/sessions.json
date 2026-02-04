@@ -1,0 +1,302 @@
+{
+  "bc186a59-650a-48aa-9f84-d11b99037358": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "Hai samaira, can you hear me?"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki personal financial advisor. Main aapki kaise madad kar sakti hoon? Kya aap koi specific financial goal soch rahe hain ya investment options ke bare mein jaanne chahte hain?"
+      }
+    ]
+  },
+  "d8632655-2a08-48c2-b319-722b1b2bac1e": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": []
+  },
+  "8fe55e1e-2bdd-4703-80b3-3559b8352e72": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "मैक्रोफुन एडर, वाओ kya बात है, सई चुडा तुने वैट्ये जासको भी है."
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki personal financial advisor. Main aapki financial needs ko samajhkar guidance provide karne ke liye yahaan hoon. Kya aap mujhe bata sakte hain ki aapko kis tarah ki financial help ya guidance chahiye?"
+      }
+    ]
+  },
+  "28e5d130-6572-459b-a15a-718604a4133f": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "hai, समाईा, के नहीं जाएगा,"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki personal financial advisor. Kaise madad kar sakti hoon aapki? Kya aapko koi specific financial goal ya investment related sawal hai?"
+      }
+    ]
+  },
+  "2d2f0fcd-dfdc-43e0-8256-c379d04532be": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपने अपन"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki personal financial advisor. Main aapki financial needs ko samajhkar aapko tailored advice dena chahti hoon. Aapko kis tarah ki financial help chahiye? Kya aap investment ke baare mein, insurance ke baare mein, ya future planning ke liye guidance dhoondh rahe hain?"
+      }
+    ]
+  },
+  "41a891f7-ffe4-40af-a062-3b3ef250d74c": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "आवावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावावा"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki personal financial advisor. Kaise ho aap? Kya main aapki financial planning mein madad kar sakti hoon? Aapko kya financial help chahiye?"
+      }
+    ]
+  },
+  "0705f752-905a-4a2a-85ab-7f46e90c6668": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर अगर �"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki personal financial advisor. Kaise ho aap? Kya aapko financial planning mein madad chahiye? Kya samasya hai jismein main aapki sahayta kar sakti hoon?"
+      }
+    ]
+  },
+  "f1e878b0-9f0a-4561-a246-cc7fe0d48255": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": []
+  },
+  "44ef548b-9f7f-4bb5-986a-59a28e2c1281": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "है, समारा के नहीं जाएगा,"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki financial advisor. Kaise madad kar sakti hoon aapki? Kya aap investment, savings, ya financial planning ke baare mein kuch pata करना chahte hain?"
+      }
+    ]
+  },
+  "e1810f0c-6a80-420f-a4a1-5a80f72ea755": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": []
+  },
+  "52106180-a73d-4487-83f2-fc651ea42682": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "Hi, Samayet Akhini, you're here to meet me."
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki personal financial advisor. Main yahaan hoon aapki financial needs samajhne aur helpful guidance dene ke liye. Aapko kya financial help chahiye? Koi specific goal hai jise aap achieve karna chahte hain?"
+      }
+    ]
+  },
+  "d1d68a64-19ec-4bfa-a09c-a806eda21aba": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "Hi Samira, can you hear me?"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki financial advisor. Main aapki kaise madad kar sakti hoon? Kya aap koi specific financial goal soch rahe hain ya investment ke baare mein samajhna chahte hain?"
+      }
+    ]
+  },
+  "6aad7bc0-5cef-4c8f-9c23-7cec1072a263": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": []
+  },
+  "79c36c9a-efd0-4d4b-9c9b-ce89046d8cf6": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "Hi Samira, can you hear me?"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki financial advisor. Main aapki financial needs samajhna chahti hoon. Aap kis tarah ki financial help ya guidance chahte hain? Kya aap investment, savings, ya future planning ke liye kuch specific advice dhoondh rahe hain?"
+      }
+    ]
+  },
+  "ec8c8988-77c6-452e-9fee-ee1e553d7fa8": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": []
+  },
+  "058ebb38-8b93-4634-b9c6-3173b52ab6e9": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "Hi Samira, can you hear me?"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki personal financial advisor. Main aapki financial needs ko samajhne ke liye yahaan hoon. Kya main aapki madad kar sakti hoon kisi specific financial planning mein? Aapko kis tarah ki financial help chahiye?"
+      }
+    ]
+  },
+  "468c5fa8-307a-4c14-aacf-92a8671ffe70": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": []
+  },
+  "e1983001-ecc1-44d6-a524-1d17419776b3": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "Hi Samira, can you hear me?"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki financial advisor. Main aapki kaise madad kar sakti hoon? Kya aap kisi specific financial goal ke liye planning kar rahe hain ya investment ke baare mein kuch samajhna chahte hain?"
+      }
+    ]
+  },
+  "e7ded5c8-5d21-4305-a451-4210a5a97167": {
+    "user_name": "Rehta",
+    "current_phase": "calculating",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "Okay Samira, ma Bangalore mein rehta hoon, meri earning 1.5 lakh rupees a."
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste Rehta! Main SamairaAI hoon, aapki financial advisor. Bangalore mein rehti hoon, toh hum apni baat easily kar sakte hain. Aapki earning 1.5 lakh rupees hai, aur aap kuch financial planning karna chahte hain, lagta hai? Aapko kitne paise ka target hai jise aap achieve करना चाहते hain?"
+      }
+    ]
+  },
+  "2ca18fd7-f1b3-4bf0-a6e2-b4aa5c57a556": {
+    "user_name": null,
+    "current_phase": "calculating",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "Samira, mein 1.5 lakh rupees earn kartaon aur inmese 30-40,000 rupees har maine saf kar letaon. Mujhe in 30-40,000 rupees ko invest karke 2 saalo mein 20 lakh rupees banana hai because of my educational plans. I want to pursue Masters in another country."
+      },
+      {
+        "role": "assistant",
+        "content": "2 saal mein 20 lakh ka target bahut challenging hai, lekin hum dekhenge. Aapke monthly savings 30-40,000 hain, toh hum isse hi kaam shuru karte hain. \n\nSIP mein invest karna ek accha option ho sakta hai. Agar aap ₹35,000 monthly SIP karte hain at 12% return, 2 saal mein aapka corpus around ₹9.5 lakh ho sakta hai. Yeh thoda kam hai aapke target se.\n\nKitne bachche hain aapke?\n\n⚠️ *Yeh sirf ek illustration hai. Actual returns market conditions pe depend karte hain. Past performance future returns ki guarantee nahi hai. Yeh investment advice nahi hai.*"
+      }
+    ]
+  },
+  "b30b1209-08ff-42a8-8276-c90db4b5aa94": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": []
+  },
+  "032b2ca9-146a-496c-adb5-192c5a5a457f": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "Hello Samayera, can you hear me?"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki personal financial advisor. Main aapki financial needs samajhkar guidance provide karne ke liye yahaan hoon. Aapko kis tarah ki financial help chahiye? Kya aap investment, savings, ya future planning ke baare mein baat karna chahte hain?"
+      }
+    ]
+  },
+  "ec30e725-c525-4e1c-b4f7-247134a99d94": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": []
+  },
+  "953382a1-d7b8-4827-b34e-5f0850b6af6f": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": []
+  },
+  "05d3180f-3262-48d4-9c6c-3656d6b5bb3c": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "Hi Samira, kya meri awaaz aare hi hai?"
+      },
+      {
+        "role": "assistant",
+        "content": "Namaste! Main SamairaAI hoon, aapki financial advisor. Aapki awaaz clear aa rahi hai! Kya main aapki financial planning mein madad kar sakti hoon? Aapko kya financial help chahiye - savings, investments, ya future planning ke liye? Bataiye, main aapki kaise madad kar sakti hoon?"
+      }
+    ]
+  },
+  "889ae956-65a3-4555-9b93-4fbb917b5f54": {
+    "user_name": null,
+    "current_phase": "greeting",
+    "risk_preference": null,
+    "conversation_history": []
+  }
+}

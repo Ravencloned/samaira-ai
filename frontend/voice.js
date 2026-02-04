@@ -172,20 +172,38 @@ async function startRecording() {
     const micBtn = document.getElementById('mic-btn');
     
     try {
+        // Check browser support
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('BROWSER_NOT_SUPPORTED');
+        }
+        
         // Always get a fresh stream to prevent audio degradation
         if (VoiceState.stream) {
             VoiceState.stream.getTracks().forEach(track => track.stop());
         }
         
-        VoiceState.stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,  // Help maintain consistent volume
-                sampleRate: 44100,      // Higher quality audio
-                channelCount: 1         // Mono for speech
+        try {
+            VoiceState.stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,  // Help maintain consistent volume
+                    sampleRate: 44100,      // Higher quality audio
+                    channelCount: 1         // Mono for speech
+                }
+            });
+        } catch (micError) {
+            // Handle specific microphone errors
+            if (micError.name === 'NotAllowedError' || micError.name === 'PermissionDeniedError') {
+                throw new Error('PERMISSION_DENIED');
+            } else if (micError.name === 'NotFoundError') {
+                throw new Error('NO_MICROPHONE');
+            } else if (micError.name === 'NotReadableError') {
+                throw new Error('MIC_IN_USE');
+            } else {
+                throw micError;
             }
-        });
+        }
         
         VoiceState.mediaRecorder = new MediaRecorder(VoiceState.stream, {
             mimeType: getSupportedMimeType(),
@@ -226,7 +244,27 @@ async function startRecording() {
         
     } catch (error) {
         console.error('Recording error:', error);
-        alert('Microphone access denied. Please allow microphone access.');
+        
+        // Show user-friendly error messages
+        let errorMsg = 'Could not access microphone';
+        if (error.message === 'PERMISSION_DENIED') {
+            errorMsg = 'Microphone permission denied.\n\n🔒 Please click the lock/camera icon in your browser address bar and allow microphone access.\n\nThen click the microphone button again.';
+        } else if (error.message === 'NO_MICROPHONE') {
+            errorMsg = 'No microphone found.\n\n🎤 Please connect a microphone to your computer and try again.';
+        } else if (error.message === 'MIC_IN_USE') {
+            errorMsg = 'Microphone is being used by another application.\n\n❌ Please close other apps using the microphone (Zoom, Teams, etc.) and try again.';
+        } else if (error.message === 'BROWSER_NOT_SUPPORTED') {
+            errorMsg = 'Your browser does not support microphone access.\n\n💻 Please use Chrome, Firefox, or Edge.';
+        } else {
+            errorMsg = `Microphone error: ${error.message}`;
+        }
+        
+        alert(errorMsg);
+        
+        // Show toast notification as well
+        if (typeof showToast === 'function') {
+            showToast('error', 'Microphone Error', errorMsg.split('\n')[0]);
+        }
     }
 }
 
@@ -359,7 +397,14 @@ async function processVoiceInput(audioBlob) {
         const typing = document.getElementById(typingId);
         if (typing) typing.remove();
         
-        addVoiceMessage('ai', 'Maaf kijiye, aapki awaaz process karne mein problem hui. Please try again.');
+        // Show more specific error message
+        let errorMsg = 'Maaf kijiye, aapki awaaz process karne mein problem hui.';
+        if (error.message.includes('500')) {
+            errorMsg = 'Server error - please check if Whisper model is loaded.';
+        } else if (error.message.includes('Failed to fetch')) {
+            errorMsg = 'Server not responding - please restart the backend.';
+        }
+        addVoiceMessage('ai', errorMsg + ' (Debug: ' + error.message + ')');
     } finally {
         VoiceState.isProcessing = false;
         updateVoiceStatusUI('');

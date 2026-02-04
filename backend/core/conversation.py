@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from core.state import SessionState, GoalType, ConversationPhase
 from core.intent import detect_intent, IntentType, IntentResult
+from core.postprocess import clean_response
 from core.safety import (
     check_safety, 
     SafetyCheckResult, 
@@ -125,7 +126,11 @@ class ConversationOrchestrator:
             llm_response = inject_disclaimer(llm_response, has_projection, has_calculation)
             session.disclaimers_shown += 1
         
-        # Step 7: Update session state
+        # Step 7: Clean response (remove re-introductions after turn 1)
+        turn_number = len(session.conversation_history) // 2 + 1
+        llm_response = clean_response(llm_response, turn_number=turn_number)
+        
+        # Step 8: Update session state
         self._update_session(session, user_message, llm_response, intent_result)
         
         return ConversationResponse(

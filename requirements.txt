@@ -10,8 +10,13 @@ httpx==0.26.0  # For Groq API calls
 
 # Speech Processing
 openai-whisper==20231117
+faster-whisper==1.0.3  # Optimized Whisper with CTranslate2
+webrtcvad==2.0.10  # Voice Activity Detection
 soundfile==0.12.1
 numpy==1.26.3
+
+# Edge TTS for free, high-quality voice synthesis
+edge-tts==6.1.9
 
 # HTTP & Async
 python-multipart==0.0.6

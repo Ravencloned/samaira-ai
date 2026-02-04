@@ -126,6 +126,9 @@ class LLMService:
         else:
             response = self._get_smart_fallback(user_message, session)
         
+        # NOTE: Post-processing (clean_response) happens in conversation.py
+        # to ensure it runs after disclaimer injection
+        
         # Process through MCP memory (async, non-blocking)
         await self.process_memory(session.session_id, user_message, response)
         
@@ -182,15 +185,25 @@ class LLMService:
         """
         message_lower = message.lower()
         
-        # Greeting detection
+        # Greeting detection - NO RE-INTRODUCTION if history exists
         greetings = ["hi", "hello", "namaste", "hey", "hola", "kaise", "how are", "can you hear"]
         if any(g in message_lower for g in greetings):
             name = session.user_name or "dost"
-            return (
-                f"Namaste {name}! Haan main sun sakti hoon. Main SamairaAI hoon, "
-                f"aapki financial friend! Batao, kya help chahiye? SIP, RD, PPF, "
-                f"ya koi aur sawaal ho toh poocho!"
-            )
+            # Check if this is first interaction
+            history = session.get_conversation_history(n=5)
+            if len(history) == 0:
+                # First greeting - introduce
+                return (
+                    f"Namaste {name}! Haan main sun sakti hoon. Main SamairaAI hoon, "
+                    f"aapki financial friend! Batao, kya help chahiye? SIP, RD, PPF, "
+                    f"ya koi aur sawaal ho toh poocho!"
+                )
+            else:
+                # Continuing conversation - no re-intro
+                return (
+                    f"Haan {name}, main yahan hoon! Kya jaanna chahte ho? "
+                    f"Bataiye, kaise help kar sakti hoon?"
+                )
         
         # SIP queries
         if "sip" in message_lower:
