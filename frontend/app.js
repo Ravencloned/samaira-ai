@@ -1,21 +1,28 @@
 /**
  * SamairaAI - Premium Chat Application
  * Features: Streaming responses, Markdown rendering, Voice I/O, Dark mode
+ * Production-ready with connection monitoring, error handling, and retry logic
  */
 
 // ===== CONFIGURATION =====
 const API_BASE = '/api';
 const ENABLE_STREAMING = true;
+const RETRY_ATTEMPTS = 3;
+const RETRY_DELAY = 1000;
+const CONNECTION_CHECK_INTERVAL = 30000;
 
 // ===== APPLICATION STATE =====
 const AppState = {
     sessionId: localStorage.getItem('samaira-session-id') || null,
     isProcessing: false,
+    isConnected: false,
     messages: [],
     chatHistory: JSON.parse(localStorage.getItem('samaira-chat-history') || '[]'),
     ttsEnabled: true,
     currentTheme: 'light',
-    usePremiumTTS: false  // Will check if ElevenLabs available
+    usePremiumTTS: false,
+    retryCount: 0,
+    lastActivity: Date.now()
 };
 
 // ===== DOM ELEMENTS =====
@@ -27,11 +34,13 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     loadLanguagePreference();
     initEventListeners();
+    checkConnection();
     createSession();
     loadChatHistory();
     checkTTSProvider();
+    startConnectionMonitor();
     
-    console.log('🪷 SamairaAI initialized');
+    console.log('🪷 SamairaAI v1.0 initialized');
 });
 
 function initElements() {
@@ -48,7 +57,116 @@ function initElements() {
     elements.themeToggle = document.getElementById('theme-toggle');
     elements.chatHistory = document.getElementById('chat-history');
     elements.languageSelector = document.getElementById('language-selector');
+    elements.connectionBanner = document.getElementById('connection-banner');
+    elements.connectionIndicator = document.getElementById('connection-indicator');
+    elements.toastContainer = document.getElementById('toast-container');
 }
+
+// ===== CONNECTION MONITORING =====
+async function checkConnection() {
+    const indicator = elements.connectionIndicator;
+    if (indicator) indicator.classList.add('connecting');
+    
+    try {
+        const response = await fetch(`${API_BASE}/status`, { 
+            method: 'GET',
+            timeout: 5000 
+        });
+        const data = await response.json();
+        
+        AppState.isConnected = data.ok;
+        
+        if (indicator) {
+            indicator.classList.remove('connecting', 'disconnected');
+            indicator.title = 'Connected to server';
+        }
+        
+        hideConnectionBanner();
+        return true;
+    } catch (error) {
+        AppState.isConnected = false;
+        
+        if (indicator) {
+            indicator.classList.remove('connecting');
+            indicator.classList.add('disconnected');
+            indicator.title = 'Disconnected from server';
+        }
+        
+        showConnectionBanner('error', 'Cannot connect to server. Retrying...');
+        return false;
+    }
+}
+
+function startConnectionMonitor() {
+    setInterval(async () => {
+        // Only check if idle (no recent activity)
+        if (Date.now() - AppState.lastActivity > CONNECTION_CHECK_INTERVAL) {
+            await checkConnection();
+        }
+    }, CONNECTION_CHECK_INTERVAL);
+}
+
+function showConnectionBanner(type, message) {
+    const banner = elements.connectionBanner;
+    if (!banner) return;
+    
+    banner.className = `connection-banner visible ${type}`;
+    banner.querySelector('.connection-text').textContent = message;
+}
+
+function hideConnectionBanner() {
+    const banner = elements.connectionBanner;
+    if (banner) banner.classList.remove('visible');
+}
+
+// ===== TOAST NOTIFICATIONS =====
+function showToast(type, title, message, duration = 4000) {
+    const container = elements.toastContainer;
+    if (!container) return;
+    
+    const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type]}</span>
+        <div class="toast-content">
+            <div class="toast-title">${title}</div>
+            ${message ? `<div class="toast-message">${message}</div>` : ''}
+        </div>
+    `;
+    
+    container.appendChild(toast);
+    
+    // Auto remove
+    setTimeout(() => {
+        toast.classList.add('toast-out');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+// ===== MODAL FUNCTIONS =====
+function showDisclaimer() {
+    const modal = document.getElementById('disclaimer-modal');
+    if (modal) modal.classList.add('visible');
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove('visible');
+}
+
+// Close modal on overlay click
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.classList.remove('visible');
+    }
+});
 
 function initTheme() {
     const savedTheme = localStorage.getItem('samaira-theme') || 'light';
@@ -78,6 +196,11 @@ function initEventListeners() {
     // Auto-resize textarea
     elements.messageInput.addEventListener('input', autoResizeTextarea);
     
+    // Track activity
+    elements.messageInput.addEventListener('focus', () => {
+        AppState.lastActivity = Date.now();
+    });
+    
     // New chat
     elements.newChatBtn.addEventListener('click', startNewChat);
     
@@ -98,6 +221,7 @@ function handleLanguageChange(event) {
     const value = event.target.value;
     AppState.preferredLanguage = value;
     localStorage.setItem('samaira-language', value);
+    showToast('success', 'Language updated', `Responses will be in ${value}`);
 }
 
 // ===== SESSION MANAGEMENT =====
@@ -264,6 +388,17 @@ function sendExample(text) {
 }
 
 async function sendMessage(message) {
+    // Check connection first
+    if (!AppState.isConnected) {
+        const connected = await checkConnection();
+        if (!connected) {
+            showToast('error', 'Connection Error', 'Unable to reach server. Please check your connection.');
+            return;
+        }
+    }
+    
+    AppState.lastActivity = Date.now();
+    
     // Show chat area
     elements.welcomeScreen.classList.add('hidden');
     elements.chatMessages.classList.remove('hidden');
@@ -277,16 +412,41 @@ async function sendMessage(message) {
     
     try {
         if (ENABLE_STREAMING) {
-            await sendMessageStreaming(message, typingId);
+            await sendMessageWithRetry(message, typingId, sendMessageStreaming);
         } else {
-            await sendMessageNormal(message, typingId);
+            await sendMessageWithRetry(message, typingId, sendMessageNormal);
         }
     } catch (error) {
         console.error('Send error:', error);
         removeTypingIndicator(typingId);
-        addMessage('ai', 'Maaf kijiye, kuch technical issue aa gaya. Please try again.');
+        
+        // User-friendly error messages
+        let errorMessage = 'Maaf kijiye, kuch technical issue aa gaya. Please try again.';
+        if (error.message.includes('timeout')) {
+            errorMessage = 'Server response mein delay ho gaya. Please try again.';
+        } else if (error.message.includes('network')) {
+            errorMessage = 'Network issue hai. Please check your connection.';
+        }
+        
+        addMessage('ai', errorMessage);
+        showToast('error', 'Error', 'Message could not be sent');
     } finally {
         AppState.isProcessing = false;
+    }
+}
+
+async function sendMessageWithRetry(message, typingId, sendFunction, attempt = 1) {
+    try {
+        await sendFunction(message, typingId);
+        AppState.retryCount = 0;
+    } catch (error) {
+        if (attempt < RETRY_ATTEMPTS && !error.message.includes('400')) {
+            console.log(`Retry attempt ${attempt}/${RETRY_ATTEMPTS}...`);
+            AppState.retryCount = attempt;
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * attempt));
+            return sendMessageWithRetry(message, typingId, sendFunction, attempt + 1);
+        }
+        throw error;
     }
 }
 

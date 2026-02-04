@@ -1,59 +1,79 @@
 """
 Chat API routes for text-based conversation.
+Production-ready with validation, streaming, and rich responses.
 """
 
-from fastapi import APIRouter, HTTPException
+import logging
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Dict, Any
 import json
 import asyncio
+from datetime import datetime
 
 from core.state import session_store
 from core.conversation import orchestrator
 from services.user_intelligence import user_intelligence
 
+logger = logging.getLogger("samaira.chat")
 
 router = APIRouter()
 
 
 class ChatRequest(BaseModel):
     """Request body for chat endpoint."""
-    message: str
-    session_id: Optional[str] = None
+    message: str = Field(..., min_length=1, max_length=2000, description="User message")
+    session_id: Optional[str] = Field(None, description="Session ID for conversation continuity")
+    language: Optional[str] = Field("hinglish", description="Preferred response language")
+    
+    @validator('message')
+    def clean_message(cls, v):
+        return v.strip()
 
 
-class ChatResponse(BaseModel):
-    """Response body for chat endpoint."""
-    response: str
-    session_id: str
+class ChatMetadata(BaseModel):
+    """Rich metadata about the conversation turn."""
     intent: str
     confidence: float
     entities: dict
+    phase: Optional[str] = None
+    has_goal: bool = False
+    response_time_ms: Optional[float] = None
+
+
+class ChatResponse(BaseModel):
+    """Rich response body for chat endpoint."""
+    response: str
+    session_id: str
+    metadata: ChatMetadata
     is_safe: bool
     handoff_requested: bool
     calculation_data: Optional[dict] = None
     tts_text: Optional[str] = None
-    suggested_questions: Optional[list] = None
+    suggested_questions: Optional[List[str]] = None
+    user_profile_summary: Optional[dict] = None  # New: user intelligence summary
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, http_request: Request):
     """
     Process a text message and return AI response.
     
     This is the main conversation endpoint for text-based interaction.
+    Includes user profiling, intent detection, and personalized responses.
     """
-    if not request.message.strip():
-        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    start_time = datetime.now()
+    request_id = getattr(http_request.state, 'request_id', 'unknown')
     
     # Get or create session
     session = session_store.get_or_create(request.session_id)
+    logger.info(f"[{request_id}] Chat from session {session.session_id[:8]}...")
     
     # Analyze user message for profile building
     insights = user_intelligence.analyze_message(session.session_id, request.message)
     if insights:
-        print(f"📊 User insights: {insights}")
+        logger.debug(f"User insights: {insights}")
     
     try:
         # Process message through orchestrator
@@ -62,6 +82,9 @@ async def chat(request: ChatRequest):
             session
         )
         
+        # Calculate response time
+        response_time = (datetime.now() - start_time).total_seconds() * 1000
+        
         # Prepare TTS-friendly text (stripped of markdown)
         from services.tts_service import tts_service
         tts_text = tts_service.prepare_text_for_speech(result.text)
@@ -69,22 +92,43 @@ async def chat(request: ChatRequest):
         # Generate suggested follow-up questions
         suggested = generate_follow_up_questions(result.intent.primary_intent.value, request.message)
         
+        # Get user profile summary for personalization visibility
+        profile = user_intelligence.get_or_create_profile(session.session_id)
+        profile_summary = {
+            "goals": profile.goals[:3] if profile.goals else [],
+            "risk_appetite": profile.risk_appetite,
+            "literacy_level": profile.financial_literacy
+        }
+        
         return ChatResponse(
             response=result.text,
             session_id=session.session_id,
-            intent=result.intent.primary_intent.value,
-            confidence=result.intent.confidence,
-            entities=result.intent.entities,
+            metadata=ChatMetadata(
+                intent=result.intent.primary_intent.value,
+                confidence=result.intent.confidence,
+                entities=result.intent.entities,
+                phase=session.current_phase.value if hasattr(session, 'current_phase') else None,
+                has_goal=session.current_goal is not None if hasattr(session, 'current_goal') else False,
+                response_time_ms=round(response_time, 1)
+            ),
             is_safe=result.safety_check.is_safe,
             handoff_requested=result.safety_check.should_handoff,
             calculation_data=result.calculation_data,
             tts_text=tts_text,
-            suggested_questions=suggested
+            suggested_questions=suggested,
+            user_profile_summary=profile_summary
         )
     
     except Exception as e:
-        print(f"Chat error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"[{request_id}] Chat error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "error": "processing_error",
+                "message": "Maaf kijiye, kuch technical problem ho gaya. Please try again.",
+                "request_id": request_id
+            }
+        )
 
 
 def generate_follow_up_questions(intent: str, user_message: str) -> list:

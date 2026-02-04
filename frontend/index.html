@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="SamairaAI - Your personal financial literacy companion for Indian families. Learn about SIP, RD, PPF, and government schemes in simple Hinglish.">
+    <meta name="theme-color" content="#ea580c">
     <title>SamairaAI - Financial Companion</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪷</text></svg>">
     <link rel="stylesheet" href="/static/styles.css">
@@ -13,6 +15,15 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
+    <!-- Connection Status Banner -->
+    <div class="connection-banner" id="connection-banner">
+        <span class="connection-icon">⚠️</span>
+        <span class="connection-text">Connecting to server...</span>
+    </div>
+    
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+    
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
@@ -34,6 +45,9 @@
             </div>
             
             <div class="sidebar-footer">
+                <div class="sidebar-stats" id="sidebar-stats">
+                    <!-- Stats will be populated by JS -->
+                </div>
                 <button class="theme-toggle" id="theme-toggle">
                     <span id="theme-icon">🌙</span>
                     <span id="theme-text">Dark mode</span>
@@ -58,10 +72,14 @@
                     <div class="logo">
                         <div class="logo-icon">🪷</div>
                         <span class="logo-text">SamairaAI</span>
+                        <span class="version-badge">v1.0</span>
                     </div>
                 </div>
                 <div class="header-controls">
-                    <select id="language-selector" class="language-dropdown" onchange="changeLanguage(this.value)">
+                    <div class="connection-indicator" id="connection-indicator" title="Server status">
+                        <span class="status-dot"></span>
+                    </div>
+                    <select id="language-selector" class="language-dropdown">
                         <option value="hinglish">🌐 Hinglish (मिक्स)</option>
                         <option value="english">🇬🇧 English</option>
                         <option value="hindi">🇮🇳 हिंदी</option>
@@ -73,9 +91,16 @@
             <div class="chat-area" id="chat-area">
                 <!-- Welcome Screen -->
                 <div class="welcome-screen" id="welcome-screen">
-                    <div class="welcome-logo">🪷</div>
+                    <div class="welcome-logo pulse">🪷</div>
                     <h1>Namaste! Main SamairaAI hoon</h1>
                     <p>Aapka personal financial literacy companion. Main aapko investments, savings, aur government schemes samjhane mein madad karungi - bilkul simple Hinglish mein!</p>
+                    
+                    <div class="feature-badges">
+                        <span class="badge">🎯 Goal Planning</span>
+                        <span class="badge">📊 SIP/RD Calculator</span>
+                        <span class="badge">🏛️ Govt Schemes</span>
+                        <span class="badge">🎤 Voice Support</span>
+                    </div>
                     
                     <div class="quick-actions">
                         <button class="quick-action" onclick="sendExample('SIP aur RD mein kya difference hai? Mujhe detail mein samjhao.')">
@@ -102,6 +127,10 @@
                             <p>Build your safety net</p>
                         </button>
                     </div>
+                    
+                    <div class="keyboard-hint">
+                        <kbd>Enter</kbd> to send • <kbd>Space</kbd> for voice • <kbd>Shift+Enter</kbd> for new line
+                    </div>
                 </div>
                 
                 <!-- Chat Messages -->
@@ -119,12 +148,13 @@
                             class="message-input"
                             placeholder="Message SamairaAI..."
                             rows="1"
+                            maxlength="2000"
                         ></textarea>
                         <div class="input-actions">
-                            <button class="voice-btn" id="mic-btn" title="Voice input">
+                            <button class="voice-btn" id="mic-btn" title="Voice input (Space)">
                                 🎤
                             </button>
-                            <button class="send-btn" id="send-btn" title="Send message">
+                            <button class="send-btn" id="send-btn" title="Send message (Enter)">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <line x1="22" y1="2" x2="11" y2="13"></line>
                                     <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
@@ -133,11 +163,30 @@
                         </div>
                     </div>
                     <div class="input-footer">
-                        <p>SamairaAI sirf educational information deti hai, investment advice nahi. Decisions lene se pehle advisor se baat karein.</p>
+                        <p>SamairaAI sirf educational information deti hai, investment advice nahi. <a href="#" onclick="showDisclaimer()">Disclaimer</a></p>
                     </div>
                 </div>
             </div>
         </main>
+    </div>
+    
+    <!-- Disclaimer Modal -->
+    <div class="modal-overlay" id="disclaimer-modal">
+        <div class="modal-content">
+            <h2>⚠️ Important Disclaimer</h2>
+            <div class="modal-body">
+                <p><strong>SamairaAI is for educational purposes only.</strong></p>
+                <ul>
+                    <li>We do NOT provide investment advice or recommendations</li>
+                    <li>All calculations are illustrative with assumed rates</li>
+                    <li>Past performance does not guarantee future results</li>
+                    <li>Please consult a SEBI-registered advisor before investing</li>
+                    <li>We are not responsible for any financial decisions you make</li>
+                </ul>
+                <p>By using SamairaAI, you agree that you understand these limitations.</p>
+            </div>
+            <button class="modal-close-btn" onclick="closeModal('disclaimer-modal')">I Understand</button>
+        </div>
     </div>
 
     <script src="/static/app.js"></script>
