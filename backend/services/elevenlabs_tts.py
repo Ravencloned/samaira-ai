@@ -1,10 +1,12 @@
 """
 ElevenLabs TTS service for natural Indian voice.
 Uses the free tier (10K characters/month) for high-quality speech.
+Optimized for conversational, human-like delivery with Hindi pronunciation.
 """
 
 import httpx
 import base64
+import re
 from typing import Optional
 from config.settings import settings
 
@@ -122,6 +124,11 @@ class ElevenLabsTTS:
         'sakti': 'sak-tee',
         'sakta': 'sak-taa',
         'sakte': 'sak-tay',
+        'liye': 'lee-yay',
+        'wale': 'waa-lay',
+        'wali': 'waa-lee',
+        'kaafi': 'kaa-fee',
+        'koi': 'ko-ee',
         'milta': 'mil-taa',
         'milti': 'mil-tee',
         'milne': 'mil-nay',
@@ -134,6 +141,9 @@ class ElevenLabsTTS:
         'tumhari': 'tum-haa-ree',
         'mera': 'may-raa',
         'meri': 'may-ree',
+        'apna': 'ap-naa',
+        'apne': 'ap-nay',
+        'apni': 'ap-nee',
         
         # Question words
         'kaise': 'kai-say',

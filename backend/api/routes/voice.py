@@ -19,7 +19,7 @@ router = APIRouter()
 
 class VoiceResponse(BaseModel):
     """Response for voice endpoints."""
-    transcript: str
+    transcript: str  # What user said (as-spoken, in their language)
     response: str
     session_id: str
     tts_text: str
@@ -28,6 +28,7 @@ class VoiceResponse(BaseModel):
     confidence: float
     is_safe: bool
     handoff_requested: bool
+    detected_language: str = "hi"  # Language detected by Whisper
 
 
 @router.post("/voice/transcribe")
@@ -81,10 +82,11 @@ async def voice_chat(
     ext = audio.filename.split(".")[-1] if "." in audio.filename else "wav"
     
     try:
-        # Step 1: Transcribe audio
+        # Step 1: Transcribe audio (as-spoken, no translation)
         audio_bytes = await audio.read()
         transcription = whisper_asr.transcribe_bytes(audio_bytes, ext)
         transcript = transcription["text"]
+        detected_language = transcription.get("language", "hi")
         
         if not transcript.strip():
             return VoiceResponse(
@@ -96,7 +98,8 @@ async def voice_chat(
                 intent="unclear",
                 confidence=0.0,
                 is_safe=True,
-                handoff_requested=False
+                handoff_requested=False,
+                detected_language=detected_language
             )
         
         # Step 2: Get or create session
@@ -109,7 +112,7 @@ async def voice_chat(
         tts_text = tts_service.prepare_text_for_speech(result.text)
         
         return VoiceResponse(
-            transcript=transcript,
+            transcript=transcript,  # Original as-spoken text (Hindi/English as user said)
             response=result.text,
             session_id=session.session_id,
             tts_text=tts_text,
@@ -117,7 +120,8 @@ async def voice_chat(
             intent=result.intent.primary_intent.value,
             confidence=result.intent.confidence,
             is_safe=result.safety_check.is_safe,
-            handoff_requested=result.safety_check.should_handoff
+            handoff_requested=result.safety_check.should_handoff,
+            detected_language=detected_language
         )
     
     except Exception as e:
@@ -128,7 +132,74 @@ async def voice_chat(
 @router.get("/voice/tts-config")
 async def get_tts_config():
     """Get TTS configuration for the frontend."""
-    return tts_service.get_tts_config()
+    try:
+        return tts_service.get_provider_info()
+    except AttributeError:
+        # Fallback for old TTS service
+        return tts_service.get_tts_config()
+
+
+class TTSRequest(BaseModel):
+    """Request body for TTS synthesis."""
+    text: str
+    voice: Optional[str] = None
+    provider: Optional[str] = None  # edge (FREE), azure, elevenlabs, browser
+
+
+@router.post("/voice/tts")
+async def synthesize_speech(request: TTSRequest):
+    """
+    Synthesize speech from text.
+    
+    Providers (in order of quality):
+    1. Edge TTS - FREE! Same quality as Azure, no API key needed
+    2. Azure Neural TTS - requires API key
+    3. ElevenLabs - requires API key  
+    4. Browser - fallback (client-side)
+    
+    Returns:
+        audio: base64 encoded MP3 audio
+        provider: which provider was used
+        fallback: true if browser TTS should be used (no audio)
+    """
+    from services.tts_service import tts_service, TTSProvider
+    
+    # Initialize if needed
+    if not tts_service._initialized:
+        tts_service.initialize()
+    
+    # Clean text
+    text = tts_service.prepare_text_for_speech(request.text)
+    
+    # Convert provider string to enum if provided
+    provider = None
+    if request.provider:
+        try:
+            provider = TTSProvider(request.provider)
+        except ValueError:
+            pass
+    
+    # Try to synthesize
+    result = await tts_service.synthesize(text, provider, request.voice)
+    
+    if result:
+        return {
+            "success": True,
+            "audio": result['audio'],
+            "provider": result['provider'],
+            "voice": result['voice'],
+            "format": result['format'],
+            "fallback": False
+        }
+    else:
+        # Signal to use browser TTS
+        return {
+            "success": True,
+            "audio": None,
+            "provider": "browser",
+            "fallback": True,
+            "text": text  # Pre-cleaned text for browser TTS
+        }
 
 
 @router.post("/voice/prepare-tts")

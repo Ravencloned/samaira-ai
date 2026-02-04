@@ -8,12 +8,14 @@ const VoiceState = {
     isRecording: false,
     isSpeaking: false,
     isProcessing: false,
-    conversationMode: true,  // Auto-listen after AI speaks
+    conversationMode: false,  // OFF by default - user must enable manually
     mediaRecorder: null,
     audioChunks: [],
     stream: null,
     currentAudio: null,      // ElevenLabs audio element
-    currentUtterance: null   // Browser TTS utterance
+    currentUtterance: null,  // Browser TTS utterance
+    recognitionInstance: null,  // For resetting recognition
+    recognitionStartTime: null  // Track how long recognition has been running
 };
 
 // Stop any ongoing TTS immediately
@@ -43,13 +45,15 @@ function onSpeechComplete() {
     VoiceState.isSpeaking = false;
     updateVoiceStatusUI('');
     
-    // Auto-start listening in conversation mode
+    // Only auto-start listening if conversation mode is explicitly enabled
     if (VoiceState.conversationMode && !VoiceState.isRecording && !VoiceState.isProcessing) {
+        // Show prompt that user can press spacebar or click mic
+        updateVoiceStatusUI('💡 Press Space or 🎤 to respond');
         setTimeout(() => {
             if (!VoiceState.isRecording && !VoiceState.isSpeaking) {
-                startRecording();
+                updateVoiceStatusUI('');
             }
-        }, 500);  // Small delay before auto-listen
+        }, 3000);  // Clear hint after 3 seconds
     }
 }
 
@@ -109,14 +113,14 @@ function initVoice() {
     // Add conversation mode toggle
     const convModeBtn = document.createElement('button');
     convModeBtn.id = 'conv-mode-btn';
-    convModeBtn.className = 'conv-mode-btn active';
+    convModeBtn.className = 'conv-mode-btn';  // Not active by default
     convModeBtn.innerHTML = '🔄';
-    convModeBtn.title = 'Conversation Mode: ON (auto-listen after AI speaks)';
+    convModeBtn.title = 'Conversation Mode: OFF (click to enable auto-hints)';
     convModeBtn.addEventListener('click', () => {
         VoiceState.conversationMode = !VoiceState.conversationMode;
         convModeBtn.classList.toggle('active', VoiceState.conversationMode);
         convModeBtn.title = VoiceState.conversationMode ? 
-            'Conversation Mode: ON (auto-listen after AI speaks)' : 
+            'Conversation Mode: ON (shows hints after AI speaks)' : 
             'Conversation Mode: OFF';
     });
     
@@ -125,7 +129,41 @@ function initVoice() {
         inputActions.insertBefore(convModeBtn, micBtn);
     }
     
-    console.log('🎤 Voice input initialized');
+    // Add spacebar shortcut for recording toggle
+    document.addEventListener('keydown', handleSpacebarToggle);
+    
+    console.log('🎤 Voice input initialized (Press Space to toggle recording)');
+}
+
+// Handle spacebar press to toggle recording
+function handleSpacebarToggle(event) {
+    // Only trigger on spacebar
+    if (event.code !== 'Space') return;
+    
+    // Don't trigger if user is typing in input field
+    const activeElement = document.activeElement;
+    if (activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.isContentEditable
+    )) {
+        return;
+    }
+    
+    // Prevent page scroll
+    event.preventDefault();
+    
+    // Stop TTS if speaking
+    if (VoiceState.isSpeaking) {
+        stopSpeaking();
+    }
+    
+    // Toggle recording
+    if (VoiceState.isRecording) {
+        stopRecording();
+    } else if (!VoiceState.isProcessing) {
+        startRecording();
+    }
 }
 
 async function startRecording() {
@@ -134,19 +172,28 @@ async function startRecording() {
     const micBtn = document.getElementById('mic-btn');
     
     try {
+        // Always get a fresh stream to prevent audio degradation
+        if (VoiceState.stream) {
+            VoiceState.stream.getTracks().forEach(track => track.stop());
+        }
+        
         VoiceState.stream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
-                sampleRate: 16000
+                autoGainControl: true,  // Help maintain consistent volume
+                sampleRate: 44100,      // Higher quality audio
+                channelCount: 1         // Mono for speech
             }
         });
         
         VoiceState.mediaRecorder = new MediaRecorder(VoiceState.stream, {
-            mimeType: getSupportedMimeType()
+            mimeType: getSupportedMimeType(),
+            audioBitsPerSecond: 128000  // Better quality encoding
         });
         
         VoiceState.audioChunks = [];
+        VoiceState.recognitionStartTime = Date.now();  // Track recording start
         
         VoiceState.mediaRecorder.ondataavailable = (event) => {
             if (event.data.size > 0) {
@@ -156,7 +203,8 @@ async function startRecording() {
         
         VoiceState.mediaRecorder.onstop = handleRecordingComplete;
         
-        VoiceState.mediaRecorder.start();
+        // Collect data in smaller chunks for better quality
+        VoiceState.mediaRecorder.start(250);  // 250ms chunks
         VoiceState.isRecording = true;
         
         // Update UI
@@ -165,8 +213,16 @@ async function startRecording() {
             micBtn.textContent = '⏹️';
         }
         
-        updateVoiceStatusUI('🎤 Listening...');
+        updateVoiceStatusUI('🎤 Listening... (Space to stop)');
         console.log('Recording started');
+        
+        // Auto-stop after 60 seconds to prevent indefinite recording
+        VoiceState.recordingTimeout = setTimeout(() => {
+            if (VoiceState.isRecording) {
+                console.log('Auto-stopping after 60s');
+                stopRecording();
+            }
+        }, 60000);
         
     } catch (error) {
         console.error('Recording error:', error);
@@ -179,12 +235,20 @@ function stopRecording() {
     
     const micBtn = document.getElementById('mic-btn');
     
+    // Clear auto-stop timeout
+    if (VoiceState.recordingTimeout) {
+        clearTimeout(VoiceState.recordingTimeout);
+        VoiceState.recordingTimeout = null;
+    }
+    
     if (VoiceState.mediaRecorder && VoiceState.mediaRecorder.state !== 'inactive') {
         VoiceState.mediaRecorder.stop();
     }
     
+    // Release stream to prevent degradation on next use
     if (VoiceState.stream) {
         VoiceState.stream.getTracks().forEach(track => track.stop());
+        VoiceState.stream = null;
     }
     
     VoiceState.isRecording = false;

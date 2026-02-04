@@ -5,12 +5,13 @@ Chat API routes for text-based conversation.
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import json
 import asyncio
 
 from core.state import session_store
 from core.conversation import orchestrator
+from services.user_intelligence import user_intelligence
 
 
 router = APIRouter()
@@ -48,6 +49,11 @@ async def chat(request: ChatRequest):
     
     # Get or create session
     session = session_store.get_or_create(request.session_id)
+    
+    # Analyze user message for profile building
+    insights = user_intelligence.analyze_message(session.session_id, request.message)
+    if insights:
+        print(f"📊 User insights: {insights}")
     
     try:
         # Process message through orchestrator
@@ -150,6 +156,10 @@ async def chat_stream(request: ChatRequest):
     
     session = session_store.get_or_create(request.session_id)
     
+    # Log for debugging
+    history_count = len(session.conversation_history)
+    print(f"[CHAT] Session: {session.session_id[:8]}... | User: {session.user_name or 'Unknown'} | History: {history_count} msgs")
+    
     # Import LLM service for streaming
     from services.llm_service import llm_service
     from core.intent import detect_intent
@@ -162,16 +172,19 @@ async def chat_stream(request: ChatRequest):
             # Detect intent for suggestions
             intent_result = detect_intent(request.message)
             
-            # Stream directly from LLM
+            # Stream directly from LLM (user info extraction happens inside groq_client now)
             full_response = ""
             async for chunk in llm_service.chat_stream(request.message, session):
                 full_response += chunk
                 yield f"data: {json.dumps({'type': 'content', 'text': chunk})}\n\n"
-                await asyncio.sleep(0.01)  # Small delay for smooth display
+                await asyncio.sleep(0.01)
             
-            # Update session with the conversation
+            # Update session with the conversation (only place this happens now)
             session.add_message("user", request.message)
             session.add_message("assistant", full_response)
+            
+            # Log updated state
+            print(f"[CHAT] Response done. User: {session.user_name or 'Unknown'} | History now: {len(session.conversation_history)} msgs")
             
             # Send metadata at the end
             from services.tts_service import tts_service
@@ -388,4 +401,68 @@ async def list_schemes():
             }
             for s in schemes
         ]
+    }
+
+
+# ===== USER INTELLIGENCE ENDPOINTS =====
+
+class ChartRequest(BaseModel):
+    """Request for generating chart data."""
+    scenario: str  # "sip_growth", "fd_vs_sip", "asset_allocation", "goal_planning", "loan_emi"
+    params: Dict[str, Any]
+    session_id: Optional[str] = None
+
+
+@router.post("/chart")
+async def generate_chart(request: ChartRequest):
+    """
+    Generate chart data for visualization.
+    
+    Supported scenarios:
+    - sip_growth: Show SIP investment growth over time
+    - fd_vs_sip: Compare FD vs SIP returns
+    - asset_allocation: Recommended portfolio allocation
+    - goal_planning: Track progress towards a financial goal
+    - loan_emi: EMI breakdown (principal vs interest)
+    """
+    chart_data = user_intelligence.generate_chart_data(
+        chart_type=request.scenario,
+        scenario=request.scenario,
+        params=request.params
+    )
+    
+    if chart_data:
+        from dataclasses import asdict
+        return {
+            "success": True,
+            "chart": asdict(chart_data)
+        }
+    
+    return {
+        "success": False,
+        "message": f"Unknown chart scenario: {request.scenario}"
+    }
+
+
+@router.get("/user/profile/{session_id}")
+async def get_user_profile(session_id: str):
+    """Get extracted user profile for a session."""
+    profile = user_intelligence.get_profile_dict(session_id)
+    suggestions = user_intelligence.suggest_topics(session_id)
+    
+    return {
+        "profile": profile,
+        "suggested_topics": suggestions
+    }
+
+
+@router.get("/user/suggestions/{session_id}")
+async def get_suggestions(session_id: str):
+    """Get personalized topic suggestions based on user profile."""
+    suggestions = user_intelligence.suggest_topics(session_id)
+    context = user_intelligence.get_personalization_context(session_id)
+    
+    return {
+        "suggestions": suggestions,
+        "context_summary": context
     }

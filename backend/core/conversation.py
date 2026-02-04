@@ -1,6 +1,7 @@
 """
 Conversation orchestrator for SamairaAI.
 Coordinates between intent detection, safety checks, calculations, and LLM.
+Enhanced with data hub, goal interview, and knowledge base for deeper advice.
 """
 
 from typing import Optional
@@ -36,6 +37,11 @@ from financial.schemes import (
     get_scheme_explanation_hinglish,
     format_scheme_comparison
 )
+
+# Import new modules for enhanced advisor
+from services.data_hub import data_hub
+from core.goal_interview import goal_interview, GoalCategory
+from financial.knowledge_base import knowledge_base
 
 
 @dataclass
@@ -187,32 +193,98 @@ class ConversationOrchestrator:
         user_message: str,
         session: SessionState
     ) -> tuple[Optional[str], Optional[dict]]:
-        """Build context for LLM based on intent and entities."""
+        """Build rich context for LLM based on intent, data hub, and knowledge base."""
         
         context_parts = []
         calculation_data = None
         
-        # Handle comparison requests
+        # === GOAL INTERVIEW INTEGRATION ===
+        # Extract info from user message and update profile
+        interview_state = goal_interview.get_or_create_state(session.session_id)
+        extracted = goal_interview.extract_info_from_message(user_message, interview_state)
+        
+        # Detect goal from message
+        detected_goal_cat = goal_interview.detect_goal_from_message(user_message)
+        if detected_goal_cat:
+            goal_interview.set_goal(session.session_id, detected_goal_cat)
+        
+        # Add interview context (user profile + suggested questions)
+        interview_context = goal_interview.get_interview_context(session.session_id)
+        if interview_context:
+            context_parts.append(interview_context)
+        
+        # === KNOWLEDGE BASE RETRIEVAL ===
+        kb_context = knowledge_base.get_context_for_query(user_message)
+        if kb_context:
+            context_parts.append(kb_context)
+        
+        # === DATA HUB - LIVE RATES ===
+        # Detect if user mentioned a bank
+        user_bank = interview_state.profile.primary_bank
+        if not user_bank:
+            bank_code = data_hub.resolve_bank_name(user_message)
+            if bank_code:
+                user_bank = bank_code
+                interview_state.profile.primary_bank = bank_code
+        
+        # Add relevant financial data based on intent/query
+        query_type = self._detect_query_type(user_message, intent)
+        data_context = data_hub.get_context_for_llm(user_bank, query_type)
+        if data_context:
+            context_parts.append(data_context)
+        
+        # === SPECIFIC FD/BANK RATE QUERIES ===
+        if "fd" in user_message.lower() or "fixed deposit" in user_message.lower():
+            if user_bank:
+                rate_info = data_hub.get_bank_fd_rate(user_bank)
+                if rate_info:
+                    context_parts.append(
+                        f"\n**{rate_info['bank']} FD Rates:**\n"
+                        f"- 1 Year: {rate_info['general_rate']}% (Senior: {rate_info['senior_rate']}%)\n"
+                        f"Source: {rate_info['source']}"
+                    )
+            else:
+                # Show best FD rates
+                best_rates = data_hub.get_best_fd_rates(12, False, 5)
+                if best_rates:
+                    rates_text = "\n**Top FD Rates (1 Year):**\n"
+                    for r in best_rates[:5]:
+                        rates_text += f"- {r['bank']}: {r['rate']}%\n"
+                    context_parts.append(rates_text)
+        
+        # === COMPARISON REQUESTS ===
         if intent.primary_intent == IntentType.COMPARE_OPTIONS:
             if "sip" in user_message.lower() and "rd" in user_message.lower():
-                # SIP vs RD comparison
                 amount = intent.entities.get("amount", 5000)
                 years = intent.entities.get("duration_years", 10)
                 comparison = compare_sip_vs_rd(amount, years)
                 context_parts.append(f"Calculation context: {comparison['summary_hinglish']}")
                 calculation_data = comparison
+            
+            # Bank comparison
+            elif any(word in user_message.lower() for word in ["bank", "fd rate", "best rate"]):
+                comparison = data_hub.get_all_bank_rates(12)
+                context_parts.append(data_hub.format_bank_comparison_hinglish({
+                    "tenure_months": 12,
+                    "comparison": comparison[:5],
+                    "best_bank": comparison[0] if comparison else None
+                }))
         
-        # Handle calculation requests
+        # === CALCULATION REQUESTS ===
         elif intent.primary_intent == IntentType.CALCULATE:
             amount = intent.entities.get("amount")
             years = intent.entities.get("duration_years")
             
             if amount and years:
                 sip_result = calculate_sip(amount, years)
-                context_parts.append(f"SIP Calculation: {sip_result.format_summary_hinglish()}")
+                rd_result = calculate_rd(amount, years)
+                context_parts.append(
+                    f"SIP Calculation: {sip_result.format_summary_hinglish()}\n"
+                    f"For comparison - RD would give: Rs {rd_result.maturity_value:,.0f}"
+                )
                 calculation_data = sip_result.to_dict()
         
-        # Handle goal planning
+        # === GOAL PLANNING ===
         elif intent.primary_intent in [
             IntentType.GOAL_PLANNING, 
             IntentType.GOAL_EDUCATION,
@@ -224,12 +296,18 @@ class ConversationOrchestrator:
             if detected_goal:
                 template = get_goal_template(detected_goal)
                 if template:
+                    # Get next interview question for this goal
+                    next_q = goal_interview.get_next_question(session.session_id)
+                    
                     context_parts.append(
                         f"User is planning for: {template.name_hinglish}. "
                         f"Typical timeline: {template.typical_timeline_years} years. "
-                        f"Typical cost: ₹{template.typical_cost_range[0]}-{template.typical_cost_range[1]} lakhs. "
-                        f"Ask clarifying questions: {template.planning_questions[0]}"
+                        f"Typical cost: Rs {template.typical_cost_range[0]}-{template.typical_cost_range[1]} lakhs. "
                     )
+                    
+                    if next_q:
+                        context_parts.append(f"**Ask this question naturally:** {next_q[1]}")
+                        goal_interview.mark_question_asked(session.session_id, next_q[0])
                     
                     # Update session goal
                     goal_type_map = {
@@ -241,37 +319,78 @@ class ConversationOrchestrator:
                     if detected_goal in goal_type_map:
                         session.set_goal(goal_type_map[detected_goal])
         
-        # Handle scheme info requests
+        # === SCHEME INFO ===
         elif intent.primary_intent == IntentType.SCHEME_INFO:
-            # Detect which scheme
             for scheme_code in ["ppf", "ssy", "nps", "pmjjby", "pmsby", "scss"]:
                 if scheme_code in user_message.lower():
                     explanation = get_scheme_explanation_hinglish(scheme_code)
-                    context_parts.append(f"Scheme information: {explanation}")
+                    # Add current rate from data hub
+                    scheme_rate = data_hub.get_scheme_rate(scheme_code)
+                    if scheme_rate:
+                        context_parts.append(
+                            f"Scheme information: {explanation}\n"
+                            f"**Current Rate:** {scheme_rate['rate']}% p.a. (as of {scheme_rate['updated']})"
+                        )
+                    else:
+                        context_parts.append(f"Scheme information: {explanation}")
                     break
         
-        # Handle SIP info
+        # === SIP INFO ===
         elif intent.primary_intent == IntentType.SIP_INFO:
             context_parts.append(
                 "User wants to know about SIP. Key points: "
                 "SIP = Systematic Investment Plan in mutual funds. "
-                "Can start with ₹500/month. Rupee cost averaging benefit. "
-                "Market-linked returns (~10-12% historical). "
+                "Can start with Rs 500/month. Rupee cost averaging benefit. "
+                "Market-linked returns (historical avg ~10-12%). "
                 "Good for long-term goals (5+ years)."
             )
         
-        # Handle RD info
+        # === RD INFO ===
         elif intent.primary_intent == IntentType.RD_INFO:
+            # Get actual RD rates from data hub
+            best_rd_banks = ["hdfc", "sbi", "icici"]
+            rd_rates = []
+            for bank in best_rd_banks:
+                info = data_hub.get_bank_info(bank)
+                if info:
+                    rd_rates.append(f"{info.name}: {info.rd_rate}%")
+            
             context_parts.append(
-                "User wants to know about RD. Key points: "
-                "RD = Recurring Deposit in bank. "
-                "Fixed returns (~6-7% currently). "
-                "Government guarantee up to ₹5 lakhs. "
-                "Good for short-term goals or risk-averse users."
+                f"User wants to know about RD. Key points: "
+                f"RD = Recurring Deposit in bank. "
+                f"Current RD rates: {', '.join(rd_rates)}. "
+                f"Government guarantee up to Rs 5 lakhs (DICGC). "
+                f"Good for short-term goals or risk-averse users."
             )
         
-        context = " | ".join(context_parts) if context_parts else None
+        # === PROACTIVE QUESTION INJECTION ===
+        # If profile is incomplete and we should ask a question
+        if goal_interview.should_ask_question(session.session_id):
+            next_q = goal_interview.get_next_question(session.session_id)
+            if next_q and next_q[0] not in ["name"]:  # Don't force name question
+                context_parts.append(
+                    f"\n**Suggestion:** Naturally ask about {next_q[0]} to give better advice: '{next_q[1]}'"
+                )
+        
+        context = "\n\n".join(context_parts) if context_parts else None
         return context, calculation_data
+    
+    def _detect_query_type(self, message: str, intent: IntentResult) -> Optional[str]:
+        """Detect the type of financial query for data hub context."""
+        message_lower = message.lower()
+        
+        if any(w in message_lower for w in ["fd", "fixed deposit", "bank rate"]):
+            return "fd"
+        elif any(w in message_lower for w in ["invest", "sip", "mutual fund", "stock"]):
+            return "investment"
+        elif any(w in message_lower for w in ["compare", "vs", "better", "difference"]):
+            return "compare"
+        elif any(w in message_lower for w in ["goal", "retire", "education", "wedding", "ghar"]):
+            return "goal"
+        elif any(w in message_lower for w in ["tax", "80c", "deduction"]):
+            return "tax"
+        
+        return None
     
     def _update_session(
         self,

@@ -279,21 +279,24 @@ body {
     color: var(--text-primary);
 }
 
-.model-selector {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+.language-dropdown {
     background: var(--bg-secondary);
+    color: var(--text-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
+    padding: 8px 12px;
     font-size: 0.875rem;
-    color: var(--text-secondary);
     cursor: pointer;
+    transition: var(--transition);
 }
 
-.model-selector:hover {
+.language-dropdown:hover {
     background: var(--bg-tertiary);
+}
+
+.language-dropdown:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
 /* ===== CHAT AREA ===== */
@@ -444,6 +447,8 @@ body {
 .message-content {
     flex: 1;
     min-width: 0;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .message-content p {

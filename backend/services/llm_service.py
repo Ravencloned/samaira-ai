@@ -1,6 +1,7 @@
 """
 Unified LLM service for SamairaAI.
 Supports multiple providers: Groq (free, recommended) and Gemini.
+Now with MCP (Model Context Protocol) memory integration for persistent context.
 """
 
 from typing import Optional, AsyncGenerator
@@ -11,16 +12,18 @@ class LLMService:
     """
     Unified interface for LLM providers.
     Automatically falls back between providers.
+    Injects MCP memory context for persistent conversation memory.
     """
     
     def __init__(self):
         self._provider = None
         self._groq_client = None
         self._gemini_client = None
+        self._mcp_memory = None
         self._initialized = False
     
     def initialize(self):
-        """Initialize the configured LLM provider."""
+        """Initialize the configured LLM provider and MCP memory."""
         if self._initialized:
             return
         
@@ -31,18 +34,54 @@ class LLMService:
             groq_client.initialize()
             self._groq_client = groq_client
             self._provider = "groq"
-            print("✅ LLM Provider: Groq (Llama 3.3 70B)")
+            print("[OK] LLM Provider: Groq (Llama 3.3 70B)")
         elif settings.GEMINI_API_KEY:
             from services.gemini_client import gemini_client
             gemini_client.initialize()
             self._gemini_client = gemini_client
             self._provider = "gemini"
-            print("✅ LLM Provider: Google Gemini")
+            print("[OK] LLM Provider: Google Gemini")
         else:
-            print("⚠️ No LLM API key configured! Using fallback responses.")
+            print("[WARNING] No LLM API key configured! Using fallback responses.")
             self._provider = "fallback"
         
+        # Initialize MCP memory
+        try:
+            from memory.mcp import mcp_memory
+            self._mcp_memory = mcp_memory
+            print("[OK] MCP Memory: Enabled (persistent context)")
+        except ImportError as e:
+            print(f"⚠️ MCP Memory not available: {e}")
+            self._mcp_memory = None
+        
         self._initialized = True
+    
+    def _get_memory_context(self, session_id: str, user_message: str = None) -> Optional[str]:
+        """
+        Get MCP memory context to inject into LLM prompt.
+        This gives the model memory across conversation turns and sessions.
+        """
+        if not self._mcp_memory:
+            return None
+        
+        try:
+            return self._mcp_memory.get_prompt_context(session_id)
+        except Exception as e:
+            print(f"[WARNING] MCP context error: {e}")
+            return None
+    
+    async def process_memory(self, session_id: str, user_message: str, assistant_response: str):
+        """
+        Process a conversation turn through MCP memory.
+        Extracts facts, updates context, and stores for future reference.
+        """
+        if not self._mcp_memory:
+            return
+        
+        try:
+            self._mcp_memory.process_turn(session_id, user_message, assistant_response)
+        except Exception as e:
+            print(f"[WARNING] MCP memory processing error: {e}")
     
     @property
     def provider(self) -> str:
@@ -71,12 +110,26 @@ class LLMService:
         if not self._initialized:
             self.initialize()
         
+        # Get MCP memory context and combine with any existing context
+        memory_context = self._get_memory_context(session.session_id, user_message)
+        
+        if memory_context:
+            if context:
+                context = f"{memory_context}\n\n{context}"
+            else:
+                context = memory_context
+        
         if self._provider == "groq":
-            return await self._groq_client.chat(user_message, session, context)
+            response = await self._groq_client.chat(user_message, session, context)
         elif self._provider == "gemini":
-            return await self._gemini_client.chat(user_message, session, context)
+            response = await self._gemini_client.chat(user_message, session, context)
         else:
-            return self._get_smart_fallback(user_message, session)
+            response = self._get_smart_fallback(user_message, session)
+        
+        # Process through MCP memory (async, non-blocking)
+        await self.process_memory(session.session_id, user_message, response)
+        
+        return response
     
     async def chat_stream(
         self,
@@ -86,23 +139,41 @@ class LLMService:
     ) -> AsyncGenerator[str, None]:
         """
         Stream a response for real-time display.
+        Memory is processed after streaming completes.
         """
         if not self._initialized:
             self.initialize()
         
+        # Get MCP memory context
+        memory_context = self._get_memory_context(session.session_id, user_message)
+        if memory_context:
+            if context:
+                context = f"{memory_context}\n\n{context}"
+            else:
+                context = memory_context
+        
+        full_response = ""
+        
         if self._provider == "groq":
             async for chunk in self._groq_client.chat_stream(user_message, session, context):
+                full_response += chunk
                 yield chunk
         elif self._provider == "gemini":
             # Gemini doesn't have native streaming in our client, simulate it
             response = await self._gemini_client.chat(user_message, session, context)
+            full_response = response
             for word in response.split():
                 yield word + " "
         else:
             # Fallback - yield the whole response
             response = self._get_smart_fallback(user_message, session)
+            full_response = response
             for word in response.split():
                 yield word + " "
+        
+        # Process memory after streaming completes (important for context persistence)
+        if full_response:
+            await self.process_memory(session.session_id, user_message, full_response)
     
     def _get_smart_fallback(self, message: str, session) -> str:
         """

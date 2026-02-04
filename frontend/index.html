@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SamairaAI - Financial Companion</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪷</text></svg>">
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -59,11 +60,12 @@
                         <span class="logo-text">SamairaAI</span>
                     </div>
                 </div>
-                <div class="model-selector">
-                    <span>Hinglish Mode</span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
+                <div class="header-controls">
+                    <select id="language-selector" class="language-dropdown" onchange="changeLanguage(this.value)">
+                        <option value="hinglish">🌐 Hinglish (मिक्स)</option>
+                        <option value="english">🇬🇧 English</option>
+                        <option value="hindi">🇮🇳 हिंदी</option>
+                    </select>
                 </div>
             </header>
             

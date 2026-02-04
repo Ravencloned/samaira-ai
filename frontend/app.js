@@ -9,7 +9,7 @@ const ENABLE_STREAMING = true;
 
 // ===== APPLICATION STATE =====
 const AppState = {
-    sessionId: null,
+    sessionId: localStorage.getItem('samaira-session-id') || null,
     isProcessing: false,
     messages: [],
     chatHistory: JSON.parse(localStorage.getItem('samaira-chat-history') || '[]'),
@@ -25,6 +25,7 @@ const elements = {};
 document.addEventListener('DOMContentLoaded', () => {
     initElements();
     initTheme();
+    loadLanguagePreference();
     initEventListeners();
     createSession();
     loadChatHistory();
@@ -46,11 +47,20 @@ function initElements() {
     elements.menuToggle = document.getElementById('menu-toggle');
     elements.themeToggle = document.getElementById('theme-toggle');
     elements.chatHistory = document.getElementById('chat-history');
+    elements.languageSelector = document.getElementById('language-selector');
 }
 
 function initTheme() {
     const savedTheme = localStorage.getItem('samaira-theme') || 'light';
     setTheme(savedTheme);
+}
+
+function loadLanguagePreference() {
+    const saved = localStorage.getItem('samaira-language') || 'hinglish';
+    AppState.preferredLanguage = saved;
+    if (elements.languageSelector) {
+        elements.languageSelector.value = saved;
+    }
 }
 
 function initEventListeners() {
@@ -77,14 +87,32 @@ function initEventListeners() {
     
     // Theme toggle
     elements.themeToggle.addEventListener('click', toggleTheme);
+
+    // Language selector
+    if (elements.languageSelector) {
+        elements.languageSelector.addEventListener('change', handleLanguageChange);
+    }
+}
+
+function handleLanguageChange(event) {
+    const value = event.target.value;
+    AppState.preferredLanguage = value;
+    localStorage.setItem('samaira-language', value);
 }
 
 // ===== SESSION MANAGEMENT =====
 async function createSession() {
+    // If we have a saved session, use it
+    if (AppState.sessionId) {
+        console.log('Resuming session:', AppState.sessionId);
+        return;
+    }
+    
     try {
         const response = await fetch(`${API_BASE}/session/create`, { method: 'POST' });
         const data = await response.json();
         AppState.sessionId = data.session_id;
+        localStorage.setItem('samaira-session-id', data.session_id);
         console.log('Session created:', AppState.sessionId);
     } catch (error) {
         console.error('Session creation failed:', error);
@@ -100,6 +128,7 @@ async function startNewChat() {
     // Reset state
     AppState.messages = [];
     AppState.sessionId = null;
+    localStorage.removeItem('samaira-session-id');
     
     // Reset UI
     elements.chatMessages.innerHTML = '';
@@ -262,6 +291,8 @@ async function sendMessage(message) {
 }
 
 async function sendMessageStreaming(message, typingId) {
+    console.log('[DEBUG] Sending message with session_id:', AppState.sessionId);
+    
     const response = await fetch(`${API_BASE}/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -296,7 +327,10 @@ async function sendMessageStreaming(message, typingId) {
                 const data = JSON.parse(line.slice(6));
                 
                 if (data.type === 'session') {
+                    console.log('[DEBUG] Received session_id from server:', data.session_id);
+                    console.log('[DEBUG] Session changed:', AppState.sessionId !== data.session_id);
                     AppState.sessionId = data.session_id;
+                    localStorage.setItem('samaira-session-id', data.session_id);
                 } else if (data.type === 'content') {
                     // Remove typing indicator on first content
                     if (!messageElement) {
@@ -541,49 +575,113 @@ let selectedVoice = null;
 let audioContext = null;
 
 const phoneticCorrections = {
-    // Common Hindi verbs
+    // ===== VERBS =====
     'hai': 'hay',
     'hain': 'hain',
     'mein': 'main',
     'hoti': 'ho-tee',
     'hota': 'ho-taa',
+    'hote': 'ho-tay',
     'kijiye': 'kee-jee-yay',
     'chahiye': 'chaa-hee-yay',
     'karein': 'ka-rain',
     'karna': 'kar-naa',
     'karo': 'ka-ro',
+    'karunga': 'ka-roon-gaa',
+    'karungi': 'ka-roon-gee',
+    'karenge': 'ka-rain-gay',
+    'karte': 'kar-tay',
+    'karti': 'kar-tee',
     'sakti': 'sak-tee',
     'sakta': 'sak-taa',
     'sakte': 'sak-tay',
+    'liye': 'lee-yay',
+    'wale': 'waa-lay',
+    'wali': 'waa-lee',
+    'wala': 'waa-laa',
+    'kaafi': 'kaa-fee',
+    'koi': 'ko-ee',
     'milta': 'mil-taa',
     'milti': 'mil-tee',
+    'milte': 'mil-tay',
     'milne': 'mil-nay',
+    'milega': 'mi-lay-gaa',
+    'milegi': 'mi-lay-gee',
+    'dena': 'day-naa',
+    'dete': 'day-tay',
+    'deti': 'day-tee',
+    'lena': 'lay-naa',
+    'lete': 'lay-tay',
+    'leti': 'lay-tee',
+    'jaana': 'jaa-naa',
+    'jaate': 'jaa-tay',
+    'jaati': 'jaa-tee',
+    'aana': 'aa-naa',
+    'aate': 'aa-tay',
+    'aati': 'aa-tee',
+    'rakhna': 'rakh-naa',
+    'rakhte': 'rakh-tay',
+    'rakhti': 'rakh-tee',
+    'hona': 'ho-naa',
+    'rehna': 'reh-naa',
+    'rehte': 'reh-tay',
+    'rehti': 'reh-tee',
     
-    // Pronouns and possessives
+    // ===== PRONOUNS & POSSESSIVES =====
     'aapka': 'aap-kaa',
     'aapki': 'aap-kee',
     'aapko': 'aap-ko',
+    'aapse': 'aap-say',
+    'tumhara': 'tum-haa-raa',
     'tumhare': 'tum-haa-ray',
     'tumhari': 'tum-haa-ree',
     'mera': 'may-raa',
     'meri': 'may-ree',
+    'mere': 'may-ray',
+    'apna': 'ap-naa',
+    'apne': 'ap-nay',
+    'apni': 'ap-nee',
+    'inka': 'in-kaa',
+    'inki': 'in-kee',
+    'unka': 'un-kaa',
+    'unki': 'un-kee',
+    'uska': 'us-kaa',
+    'uski': 'us-kee',
+    'isko': 'is-ko',
+    'usko': 'us-ko',
+    'kisko': 'kis-ko',
+    'sabko': 'sab-ko',
     
-    // Question words
+    // ===== QUESTION WORDS =====
     'kaise': 'kai-say',
     'kya': 'kyaa',
     'kahan': 'ka-haan',
+    'kaun': 'kaun',
+    'kaunsa': 'kaun-saa',
+    'kaunsi': 'kaun-see',
     'kitna': 'kit-naa',
     'kitne': 'kit-nay',
+    'kitni': 'kit-nee',
+    'kyun': 'kyoon',
+    'kab': 'kab',
     
-    // Common adjectives/adverbs
+    // ===== ADJECTIVES & ADVERBS =====
     'bahut': 'ba-hut',
+    'bohot': 'bo-hot',
     'accha': 'ach-chaa',
     'achha': 'ach-chaa',
     'acha': 'ach-chaa',
+    'achhe': 'ach-chay',
+    'achchi': 'ach-chee',
+    'bura': 'bu-raa',
+    'buri': 'bu-ree',
     'bada': 'ba-daa',
     'badi': 'ba-dee',
+    'bade': 'ba-day',
     'chota': 'cho-taa',
     'choti': 'cho-tee',
+    'chhota': 'cho-taa',
+    'chhoti': 'cho-tee',
     'aasaan': 'aa-saan',
     'mushkil': 'mush-kil',
     'sahi': 'sa-hee',
@@ -592,8 +690,26 @@ const phoneticCorrections = {
     'dheere': 'dhee-ray',
     'zaroor': 'za-roor',
     'zaruri': 'za-roo-ree',
+    'khaas': 'khaas',
+    'behtareen': 'beh-ta-reen',
+    'shandar': 'shaan-daar',
+    'zabardast': 'za-bar-dast',
+    'kamaal': 'ka-maal',
+    'asli': 'as-lee',
+    'nakli': 'nak-lee',
+    'seedha': 'see-dhaa',
+    'seedhe': 'see-dhay',
+    'ulta': 'ul-taa',
+    'pura': 'poo-raa',
+    'puri': 'poo-ree',
+    'poora': 'poo-raa',
+    'adhura': 'a-dhoo-raa',
+    'naya': 'na-yaa',
+    'nayi': 'na-yee',
+    'purana': 'pu-raa-naa',
+    'purani': 'pu-raa-nee',
     
-    // Financial Hindi terms
+    // ===== FINANCIAL HINDI TERMS =====
     'paisa': 'pai-saa',
     'paise': 'pai-say',
     'rupaye': 'ru-pa-yay',
@@ -605,26 +721,52 @@ const phoneticCorrections = {
     'nuksaan': 'nuk-saan',
     'nuksan': 'nuk-saan',
     'byaj': 'byaaj',
+    'dhan': 'dhan',
+    'sampatti': 'sam-pat-tee',
+    'jaayedaad': 'jaa-ay-daad',
+    'kamai': 'ka-maa-ee',
+    'kharch': 'kharch',
+    'kharcha': 'khar-chaa',
+    'mudra': 'mud-raa',
+    'vittiya': 'vit-tee-ya',
+    'arthik': 'aar-thik',
     'bima': 'bee-maa',
     'lakshya': 'laksh-ya',
     'salah': 'sa-laah',
+    'sujhav': 'suj-haav',
+    'yojana': 'yo-ja-naa',
+    'karz': 'karz',
+    'rin': 'rin',
+    'suraksha': 'su-rak-shaa',
+    'labh': 'laabh',
+    'hissa': 'his-saa',
+    'munafa': 'mu-naa-faa',
+    'bhugtan': 'bhug-taan',
     'sambhavana': 'sam-bhaa-va-naa',
     
-    // Greetings
+    // ===== GREETINGS & POLITE WORDS =====
     'namaste': 'na-mas-tay',
     'namaskar': 'na-mas-kaar',
     'dhanyavaad': 'dhan-ya-vaad',
     'shukriya': 'shuk-ri-yaa',
+    'kripya': 'krip-yaa',
+    'maaf': 'maaf',
+    'alvida': 'al-vi-daa',
+    'swagat': 'swa-gat',
     
-    // Conversation starters/fillers
+    // ===== CONVERSATION STARTERS/FILLERS =====
     'dekho': 'day-kho',
     'dekh': 'daykh',
     'suno': 'su-no',
     'bolo': 'bo-lo',
     'batao': 'ba-taa-o',
     'bataiye': 'ba-taa-ee-yay',
+    'batata': 'ba-taa-taa',
+    'batati': 'ba-taa-tee',
     'samjho': 'sam-jho',
     'samjhiye': 'sam-jhi-yay',
+    'samjha': 'sam-jhaa',
+    'samajh': 'sa-majh',
     'dekhiye': 'day-khi-yay',
     'suniye': 'su-ni-yay',
     'dijiye': 'dee-ji-yay',
@@ -632,52 +774,94 @@ const phoneticCorrections = {
     'rakhiye': 'ra-khi-yay',
     'jaaniye': 'jaa-ni-yay',
     'sochiye': 'so-chi-yay',
+    'socho': 'so-cho',
+    'bataiye': 'ba-taa-ee-yay',
     
-    // Connectors
+    // ===== CONNECTORS =====
     'aur': 'aur',
     'ya': 'yaa',
     'lekin': 'lay-kin',
     'magar': 'ma-gar',
+    'parantu': 'pa-ran-tu',
     'isliye': 'is-li-yay',
     'kyunki': 'kyun-ki',
     'agar': 'a-gar',
     'toh': 'toh',
     'to': 'toh',
     'phir': 'phir',
+    'fir': 'phir',
     'matlab': 'mat-lab',
     'yaani': 'yaa-nee',
     'jaise': 'jai-say',
+    'jab': 'jab',
+    'tab': 'tab',
+    'waise': 'wai-say',
+    'jabki': 'jab-ki',
+    'halaki': 'haa-laan-ki',
+    'halanki': 'haa-laan-ki',
+    'chahe': 'chaa-hay',
+    'warna': 'war-naa',
     
-    // Time words
+    // ===== TIME WORDS =====
     'pehle': 'peh-lay',
+    'pahle': 'peh-lay',
     'baad': 'baad',
     'abhi': 'ab-hee',
     'hamesha': 'ha-may-shaa',
     'kabhi': 'kab-hee',
     'saal': 'saal',
+    'varsh': 'varsh',
     'mahina': 'ma-hee-naa',
+    'hafte': 'haf-tay',
+    'hafta': 'haf-taa',
+    'din': 'din',
+    'roz': 'roz',
+    'rozana': 'ro-zaa-naa',
+    'kal': 'kal',
+    'aaj': 'aaj',
+    'parson': 'par-son',
     
-    // Reaction words
+    // ===== REACTION WORDS =====
     'wah': 'waah',
+    'waah': 'waah',
     'arre': 'ar-ray',
+    'are': 'ar-ray',
     'haan': 'haan',
+    'ji': 'jee',
+    'jee': 'jee',
     'nahi': 'na-hee',
     'nahin': 'na-heen',
     'bilkul': 'bil-kul',
     'shayad': 'shaa-yad',
+    'sach': 'sach',
+    'jhooth': 'jhooth',
+    'theek': 'theek',
+    'thik': 'theek',
     
-    // Relationship words
+    // ===== RELATIONSHIP WORDS =====
     'beta': 'bay-taa',
     'beti': 'bay-tee',
     'bhai': 'bhaai',
     'behen': 'be-hen',
+    'behan': 'be-hen',
     'didi': 'dee-dee',
     'masi': 'maa-see',
+    'mausi': 'mau-see',
+    'chacha': 'chaa-chaa',
+    'chachi': 'chaa-chee',
+    'mama': 'maa-maa',
+    'mami': 'maa-mee',
+    'dada': 'daa-daa',
+    'dadi': 'daa-dee',
+    'nana': 'naa-naa',
+    'nani': 'naa-nee',
     'parivaar': 'pa-ri-vaar',
+    'parivar': 'pa-ri-vaar',
     'bachche': 'bach-chay',
     'bachchi': 'bach-chee',
+    'baccha': 'bach-chaa',
     
-    // Financial acronyms  
+    // ===== FINANCIAL ACRONYMS =====  
     'SIP': 'sip',
     'RD': 'aar dee',
     'PPF': 'pee pee eff',
@@ -693,27 +877,54 @@ const phoneticCorrections = {
     'KYC': 'kay why see',
     'SSY': 'sukanya samridhi',
     'EPF': 'ee pee eff',
+    'LIC': 'el aai see',
+    'UPI': 'you pee aai',
+    'ATM': 'ay tee em',
+    'NEFT': 'neft',
+    'RTGS': 'aar tee jee ess',
+    'IMPS': 'imps',
     
-    // Symbols and numbers
+    // ===== SYMBOLS AND NUMBERS =====
     '₹': 'rupees',
     'lakh': 'laakh',
     'lakhs': 'laakhs',
     'crore': 'karor',
     'crores': 'karors',
+    'hazaar': 'ha-zaar',
+    'hazar': 'ha-zaar',
     
-    // Samaira specific
+    // ===== SAMAIRA SPECIFIC =====
     'Samaira': 'Sa-mai-raa',
     'SamairaAI': 'Sa-mai-raa A I'
 };
 
 async function checkTTSProvider() {
     try {
-        const response = await fetch(`${API_BASE}/tts/status`);
+        // Check new unified TTS config endpoint
+        const response = await fetch(`${API_BASE}/voice/tts-config`);
         const data = await response.json();
-        AppState.usePremiumTTS = data.elevenlabs_available;
-        console.log('TTS Provider:', AppState.usePremiumTTS ? 'ElevenLabs' : 'Browser');
+        
+        // Premium TTS is available if we have Edge, Azure, or ElevenLabs
+        if (data.providers) {
+            const hasEdge = data.providers.some(p => p.name === 'edge' && p.available);
+            const hasAzure = data.providers.some(p => p.name === 'azure' && p.available);
+            const hasElevenLabs = data.providers.some(p => p.name === 'elevenlabs' && p.available);
+            AppState.usePremiumTTS = hasEdge || hasAzure || hasElevenLabs;
+            console.log('TTS Provider:', data.preferred, '| Premium:', AppState.usePremiumTTS);
+        } else {
+            AppState.usePremiumTTS = false;
+        }
     } catch (e) {
-        AppState.usePremiumTTS = false;
+        // Try fallback to old endpoint
+        try {
+            const oldResponse = await fetch(`${API_BASE}/tts/status`);
+            const oldData = await oldResponse.json();
+            AppState.usePremiumTTS = oldData.elevenlabs_available;
+            console.log('TTS Provider:', AppState.usePremiumTTS ? 'ElevenLabs' : 'Browser');
+        } catch {
+            AppState.usePremiumTTS = false;
+            console.log('TTS: Browser fallback only');
+        }
     }
 }
 
@@ -731,18 +942,25 @@ async function speakText(text) {
         window.updateVoiceStatusUI('🔊 Speaking...');
     }
     
-    // Try premium TTS first
+    // Try premium TTS first (Azure > ElevenLabs > Browser)
     if (AppState.usePremiumTTS) {
         try {
-            const response = await fetch(`${API_BASE}/tts`, {
+            // Use new unified TTS endpoint
+            const response = await fetch(`${API_BASE}/voice/tts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: text })
             });
             const data = await response.json();
             
-            if (data.success && data.audio) {
+            if (data.success && data.audio && !data.fallback) {
+                console.log(`🔊 TTS Provider: ${data.provider} (${data.voice || 'default'})`);
                 playAudioBase64(data.audio);
+                return;
+            } else if (data.fallback && data.text) {
+                // Use pre-cleaned text from backend for browser TTS
+                console.log('🔊 TTS Provider: Browser (fallback)');
+                speakWithBrowser(data.text);
                 return;
             }
         } catch (e) {
